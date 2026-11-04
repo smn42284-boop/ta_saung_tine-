@@ -43,7 +43,7 @@ interface SkyProps {
   max?: number;
   scale?: number;
   interactive?: boolean;
-  highlightId?: string | null;
+  highlightId?: string | null | undefined;
 }
 
 export function LanternSky({ lanterns, max = 120, scale = 1, interactive = true, highlightId }: SkyProps) {
