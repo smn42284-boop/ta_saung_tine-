@@ -7,9 +7,9 @@ import { addLantern, MAX_NICK, MAX_WISH, useLanterns, validateWish } from "@/lib
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
-      { title: "Light Up Taunggyi — Release Your Lantern" },
-      { name: "description", content: "Write a wish and add your glowing lantern to Taunggyi's shared night sky at the Coke Chill Festival." },
-      { property: "og:title", content: "Light Up Taunggyi" },
+      { title: "Light Up ThaSaung Taing — Release Your Lantern" },
+      { name: "description", content: "Write a wish and add your glowing lantern to ThaSaung Taing's shared night sky at the Coke Chill Festival." },
+      { property: "og:title", content: "Light Up ThaSaung Taing" },
       { property: "og:description", content: "Every light tells a story. Add your lantern to our shared sky!" },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
@@ -49,9 +49,9 @@ function Index() {
       </div>
 
       <div className="relative z-10 mx-auto flex max-w-md flex-col px-5 pb-12 pt-10">
-        <p className="text-center text-xs font-semibold uppercase tracking-[0.3em] text-gold">Coke Chill Festival · Tazaungdaing</p>
-        <h1 className="mt-3 text-center font-display text-4xl font-bold leading-tight text-foreground text-glow sm:text-5xl">
-          Light Up<br />Taunggyi
+        <p className="text-center text-xs font-semibold uppercase tracking-[0.3em] text-gold">Coca-Cola · Coke Chill Festival</p>
+        <h1 className="mt-3 text-center font-display text-5xl leading-tight text-foreground text-glow sm:text-6xl">
+          Light Up<br />ThaSaung Taing
         </h1>
         <p className="mt-3 text-center text-base text-muted-foreground">Every light tells a story. Add your lantern to our shared sky!</p>
 
@@ -65,7 +65,7 @@ function Index() {
           {state === "done" ? (
             <div className="wish-card p-6 text-center animate-in fade-in zoom-in-95">
               <CheckCircle2 className="mx-auto h-10 w-10 text-gold" />
-              <p className="mt-3 font-serif text-xl font-bold text-foreground">Your light is now part of Taunggyi!</p>
+              <p className="mt-3 font-serif text-xl font-bold text-foreground">Your light is now part of ThaSaung Taing!</p>
               <p className="mt-2 text-sm text-muted-foreground">Look up at the big screen — your lantern will rise once it's approved.</p>
               <button onClick={() => setState("idle")} className="mt-5 rounded-full border border-gold/50 px-5 py-2 text-sm font-semibold text-gold transition hover:bg-gold/10">
                 Light another lantern
@@ -80,7 +80,7 @@ function Index() {
               </div>
               <div>
                 <div className="flex justify-between">
-                  <label htmlFor="wish" className="text-sm font-medium text-foreground">Your wish for Taunggyi</label>
+                  <label htmlFor="wish" className="text-sm font-medium text-foreground">Your wish for ThaSaung Taing</label>
                   <span className={`text-xs ${wish.length > MAX_WISH ? "text-destructive" : "text-muted-foreground"}`}>{wish.length}/{MAX_WISH}</span>
                 </div>
                 <textarea id="wish" value={wish} rows={3} maxLength={MAX_WISH}
@@ -90,7 +90,7 @@ function Index() {
                 {error && <p className="mt-1 text-sm text-destructive" role="alert">{error}</p>}
               </div>
               <button type="submit" disabled={state === "releasing"}
-                className="flex w-full items-center justify-center gap-2 rounded-full bg-primary py-4 font-serif text-lg font-bold tracking-wider text-primary-foreground shadow-glow transition active:scale-95 disabled:opacity-60">
+                className="flex w-full items-center justify-center gap-2 rounded-full bg-primary py-4 font-sans text-lg font-bold uppercase tracking-wider text-primary-foreground shadow-glow transition active:scale-95 disabled:opacity-60">
                 <Sparkles className="h-5 w-5" /> LIGHT MY LANTERN
               </button>
             </form>
@@ -100,7 +100,7 @@ function Index() {
         <div className="mt-8 text-center">
           <p className="font-display text-5xl font-bold text-gold text-glow tabular-nums">{visible.length.toLocaleString()}</p>
           <p className="text-sm uppercase tracking-widest text-muted-foreground">lanterns illuminated</p>
-          <p className="mt-3 text-sm text-foreground/80">Together, we light up Taunggyi. Add yours and watch the sky glow!</p>
+          <p className="mt-3 text-sm text-foreground/80">Together, we light up ThaSaung Taing. Add yours and watch the sky glow!</p>
         </div>
 
         <div className="relative mt-6 h-64 overflow-hidden rounded-2xl border border-border bg-sky">

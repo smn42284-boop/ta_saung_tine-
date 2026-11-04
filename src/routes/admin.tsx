@@ -6,9 +6,9 @@ import { resetLanterns, setStatus, useLanterns, type LanternStatus } from "@/lib
 export const Route = createFileRoute("/admin")({
   head: () => ({
     meta: [
-      { title: "Light Up Taunggyi — Admin" },
-      { name: "description", content: "Moderate lantern wishes for the Light Up Taunggyi festival display." },
-      { property: "og:title", content: "Light Up Taunggyi — Admin" },
+      { title: "Light Up ThaSaung Taing — Admin" },
+      { name: "description", content: "Moderate lantern wishes for the Light Up ThaSaung Taing festival display." },
+      { property: "og:title", content: "Light Up ThaSaung Taing — Admin" },
       { property: "og:description", content: "Approve or reject visitor lantern wishes." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
