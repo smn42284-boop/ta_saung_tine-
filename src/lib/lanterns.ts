@@ -34,7 +34,7 @@ function seed(): Lantern[] {
   const now = Date.now();
   const out: Lantern[] = [];
   for (let i = 0; i < 140; i++) {
-    const [nickname, wish] = SAMPLE_WISHES[i % SAMPLE_WISHES.length];
+    const [nickname, wish] = SAMPLE_WISHES[i % SAMPLE_WISHES.length]!;
     out.push({
       id: `seed-${i}`,
       nickname,
