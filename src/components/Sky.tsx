@@ -81,7 +81,7 @@ export function LanternSky({ lanterns, max = 120, scale = 1, interactive = true,
               <X className="h-4 w-4" />
             </button>
             <p className="font-display text-lg leading-snug text-foreground">"{open.wish}"</p>
-            <p className="mt-2 text-sm text-gold">— {open.nickname || "A friend of Taunggyi"}</p>
+            <p className="mt-2 text-sm text-gold">— {open.nickname || "A friend of ThaSaung Taing"}</p>
           </div>
         </div>
       )}
