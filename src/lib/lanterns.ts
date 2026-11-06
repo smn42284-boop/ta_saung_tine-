@@ -1,7 +1,9 @@
 import { useEffect, useState, useCallback } from "react";
+import mockLanterns from "./mock-lanterns.json";
+import { maxWishLength } from "./app-config";
 
 export type LanternStatus = "pending" | "approved" | "rejected";
-export interface Lantern {
+export interface MessageRecord {
   id: string;
   nickname: string;
   wish: string;
@@ -10,50 +12,63 @@ export interface Lantern {
   hue: number; // 0-60 warm range
 }
 
-export const MAX_WISH = 100;
+export type Lantern = MessageRecord;
+
+interface MockMessage {
+  name: string;
+  message: string;
+  status: string;
+}
+
+export const MAX_WISH = maxWishLength;
 export const MAX_NICK = 24;
 const KEY = "lut.lanterns.v1";
 const EVT = "lut:update";
 
-const SAMPLE_WISHES: [string, string][] = [
-  ["Aye Aye", "May Taunggyi shine bright forever!"],
-  ["Ko Zaw", "Health and happiness for my family"],
-  ["Mya", "Peace for every home in Shan State"],
-  ["", "May all our dreams float high tonight"],
-  ["Hnin", "Good luck to all students this year"],
-  ["Thura", "Friends forever, festival forever!"],
-  ["Su Su", "Love and laughter for everyone here"],
-  ["Min Min", "Wishing my mom a speedy recovery"],
-  ["", "Let's meet again next Tazaungdaing!"],
-  ["Nang", "May Inle and Taunggyi always be blessed"],
-  ["Kyaw Kyaw", "Success for every small business in town"],
-  ["Phyu", "Chill vibes and good music all night"],
-];
+const SAMPLE_MESSAGES: MockMessage[] = mockLanterns;
 
-function seed(): Lantern[] {
+function seed(): MessageRecord[] {
   const now = Date.now();
-  const out: Lantern[] = [];
-  for (let i = 0; i < 140; i++) {
-    const [nickname, wish] = SAMPLE_WISHES[i % SAMPLE_WISHES.length]!;
-    out.push({
+  return SAMPLE_MESSAGES.map(({ name, message, status }, i) => {
+    if (status !== "pending" && status !== "approved" && status !== "rejected") {
+      throw new Error(`Unknown status in mock message data: ${status}`);
+    }
+
+    return {
       id: `seed-${i}`,
-      nickname,
-      wish,
-      createdAt: now - (140 - i) * 97_000,
-      status: i % 23 === 0 ? "pending" : "approved",
+      nickname: name,
+      wish: message,
+      createdAt: now - (SAMPLE_MESSAGES.length - i) * 97_000,
+      status,
       hue: Math.round(Math.random() * 50),
-    });
-  }
-  return out;
+    };
+  });
 }
 
 export function loadLanterns(): Lantern[] {
   if (typeof window === "undefined") return [];
-  try {
-    const raw = localStorage.getItem(KEY);
-    if (raw) return JSON.parse(raw) as Lantern[];
-  } catch {
-    /* ignore */
+  const raw = localStorage.getItem(KEY);
+  if (raw) {
+    const parsed: unknown = JSON.parse(raw);
+    if (
+      Array.isArray(parsed) &&
+      parsed.every(
+        (item): item is Lantern =>
+          typeof item === "object" &&
+          item !== null &&
+          typeof item.id === "string" &&
+          typeof item.nickname === "string" &&
+          typeof item.wish === "string" &&
+          typeof item.createdAt === "number" &&
+          (item.status === "pending" ||
+            item.status === "approved" ||
+            item.status === "rejected") &&
+          typeof item.hue === "number",
+      )
+    ) {
+      return parsed;
+    }
+    throw new Error("Saved festival messages have an invalid format.");
   }
   const s = seed();
   localStorage.setItem(KEY, JSON.stringify(s));
@@ -73,7 +88,7 @@ export function validateWish(wish: string): string | null {
 }
 
 export function addLantern(nickname: string, wish: string): Lantern {
-  const l: Lantern = {
+  const l: MessageRecord = {
     id: crypto.randomUUID(),
     nickname: nickname.trim().slice(0, MAX_NICK),
     wish: wish.trim().slice(0, MAX_WISH),

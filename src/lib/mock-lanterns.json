@@ -1,0 +1,42 @@
+[
+  {
+    "name": "Aye Aye",
+    "message": "May Taunggyi shine bright forever!",
+    "status": "approved"
+  },
+  {
+    "name": "ကိုဇော်",
+    "message": "ပျော်ရွှင်သော တန်ဆောင်တိုင် ဖြစ်ပါစေ",
+    "status": "approved"
+  },
+  {
+    "name": "Mya",
+    "message": "Peace and happiness for every family",
+    "status": "approved"
+  },
+  {
+    "name": "Su Su",
+    "message": "မိသားစုအားလုံး ကျန်းမာချမ်းသာကြပါစေ",
+    "status": "pending"
+  },
+  {
+    "name": "Thura",
+    "message": "May every dream shine bright tonight",
+    "status": "approved"
+  },
+  {
+    "name": "Hnin",
+    "message": "အေးချမ်းပျော်ရွှင်သော ညလေး ဖြစ်ပါစေ",
+    "status": "pending"
+  },
+  {
+    "name": "Nang",
+    "message": "Love, laughter, and light for everyone",
+    "status": "rejected"
+  },
+  {
+    "name": "Min Min",
+    "message": "Wishing everyone a joyful festival",
+    "status": "approved"
+  }
+]

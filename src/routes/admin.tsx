@@ -2,14 +2,15 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { Check, X, RotateCcw, Flame, CheckCircle2, XCircle, Clock } from "lucide-react";
 import { resetLanterns, setStatus, useLanterns, type LanternStatus } from "@/lib/lanterns";
+import { appSubtitle, appTitle } from "@/lib/app-config";
 
 export const Route = createFileRoute("/admin")({
   head: () => ({
     meta: [
-      { title: "Light Up ThaSaung Taing — Admin" },
-      { name: "description", content: "Moderate lantern wishes for the Light Up ThaSaung Taing festival display." },
-      { property: "og:title", content: "Light Up ThaSaung Taing — Admin" },
-      { property: "og:description", content: "Approve or reject visitor lantern wishes." },
+      { title: `${appTitle} — Admin` },
+      { name: "description", content: appSubtitle },
+      { property: "og:title", content: `${appTitle} — Admin` },
+      { property: "og:description", content: appSubtitle },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
       { name: "robots", content: "noindex" },
@@ -43,8 +44,8 @@ function Admin() {
       <div className="mx-auto max-w-5xl">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
-            <h1 className="font-display text-3xl font-bold text-foreground">Lantern Admin</h1>
-            <p className="text-sm text-muted-foreground">Only approved lanterns appear on the festival display.</p>
+            <h1 className="font-display text-3xl font-bold text-foreground">{appTitle} · Admin</h1>
+            <p className="text-sm text-muted-foreground">{appSubtitle}. Only approved lanterns appear on the festival display.</p>
           </div>
           <button onClick={() => confirm("Reset all data to sample lanterns?") && resetLanterns()}
             className="flex items-center gap-2 rounded-full border border-border px-4 py-2 text-sm text-muted-foreground hover:text-foreground">

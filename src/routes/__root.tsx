@@ -12,6 +12,7 @@ import { useEffect, type ReactNode } from "react";
 
 import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
+import { appSubtitle, appTitle } from "../lib/app-config";
 
 function NotFoundComponent() {
   return (
@@ -78,8 +79,8 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: "Light Up ThaSaung Taing" },
-      { name: "description", content: "A digital lantern festival for the ThaSaung Taing Coke Chill Festival." },
+      { title: appTitle },
+      { name: "description", content: appSubtitle },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
     ],

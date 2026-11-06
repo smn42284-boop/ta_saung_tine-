@@ -1,16 +1,17 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
-import { Sparkles, CheckCircle2 } from "lucide-react";
+import { Sparkles, CheckCircle2, QrCode } from "lucide-react";
 import { LanternShape, LanternSky, Stars } from "@/components/Sky";
 import { addLantern, MAX_NICK, MAX_WISH, useLanterns, validateWish } from "@/lib/lanterns";
+import { appSubtitle, appTitle } from "@/lib/app-config";
 
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
-      { title: "Light Up ThaSaung Taing — Release Your Lantern" },
-      { name: "description", content: "Write a wish and add your glowing lantern to ThaSaung Taing's shared night sky at the Coke Chill Festival." },
-      { property: "og:title", content: "Light Up ThaSaung Taing" },
-      { property: "og:description", content: "Every light tells a story. Add your lantern to our shared sky!" },
+      { title: `${appTitle} — Festival Wishes` },
+      { name: "description", content: appSubtitle },
+      { property: "og:title", content: appTitle },
+      { property: "og:description", content: appSubtitle },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
     ],
@@ -51,9 +52,9 @@ function Index() {
       <div className="relative z-10 mx-auto flex max-w-md flex-col px-5 pb-12 pt-10">
         <p className="text-center text-xs font-semibold uppercase tracking-[0.3em] text-gold">Coca-Cola · Coke Chill Festival</p>
         <h1 className="mt-3 text-center font-display text-5xl leading-tight text-foreground text-glow sm:text-6xl">
-          Light Up<br />ThaSaung Taing
+          {appTitle}
         </h1>
-        <p className="mt-3 text-center text-base text-muted-foreground">Every light tells a story. Add your lantern to our shared sky!</p>
+        <p className="mt-3 text-center text-base text-muted-foreground">{appSubtitle}</p>
 
         <div className="relative mt-8">
           {state === "releasing" && (
@@ -95,18 +96,6 @@ function Index() {
               </button>
             </form>
           )}
-        </div>
-
-        <div className="mt-8 text-center">
-          <p className="font-display text-5xl font-bold text-gold text-glow tabular-nums">{visible.length.toLocaleString()}</p>
-          <p className="text-sm uppercase tracking-widest text-muted-foreground">lanterns illuminated</p>
-          <p className="mt-3 text-sm text-foreground/80">Together, we light up ThaSaung Taing. Add yours and watch the sky glow!</p>
-        </div>
-
-        <div className="relative mt-6 h-64 overflow-hidden rounded-2xl border border-border bg-sky">
-          <Stars count={25} />
-          <LanternSky lanterns={visible} max={30} scale={0.7} highlightId={newId} />
-          <p className="pointer-events-none absolute left-3 top-3 text-xs uppercase tracking-widest text-gold">Shared sky · tap a lantern</p>
         </div>
       </div>
     </main>
