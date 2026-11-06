@@ -1,128 +1,207 @@
-import { useEffect, useState, useCallback } from "react";
-import mockLanterns from "./mock-lanterns.json";
+import { useCallback, useEffect, useState } from "react";
 import { maxWishLength } from "./app-config";
 
 export type LanternStatus = "pending" | "approved" | "rejected";
-export interface MessageRecord {
+export const OFFICE_LOCATIONS = ["HTY", "HmweBe", "CDC", "Other Regions"] as const;
+export type LanternLocation = (typeof OFFICE_LOCATIONS)[number];
+
+export interface Lantern {
   id: string;
-  nickname: string;
-  wish: string;
-  createdAt: number;
-  status: LanternStatus;
-  hue: number; // 0-60 warm range
-}
-
-export type Lantern = MessageRecord;
-
-interface MockMessage {
   name: string;
   message: string;
-  status: string;
+  officeLocation: LanternLocation;
+  status: LanternStatus;
+  createdAt: string;
+}
+
+export type MessageRecord = Lantern;
+
+export interface CreateLanternInput {
+  name: string;
+  message: string;
+  officeLocation: LanternLocation;
+}
+
+export interface LanternRepository {
+  list(): Promise<Lantern[]>;
+  create(input: CreateLanternInput): Promise<Lantern>;
+  updateStatus(id: string, status: LanternStatus): Promise<Lantern>;
+  reset(): Promise<void>;
+  exportAll(): Promise<string>;
 }
 
 export const MAX_WISH = maxWishLength;
 export const MAX_NICK = 24;
-const KEY = "lut.lanterns.v1";
-const EVT = "lut:update";
+let legacyMigrationComplete = false;
+const CHANGE_EVENT = "lut:update";
+const LEGACY_STORAGE_KEY = "lut.lanterns.v1";
+const LEGACY_MIGRATION_KEY = "lut.lanterns.api-migrated";
 
-const SAMPLE_MESSAGES: MockMessage[] = mockLanterns;
-
-function seed(): MessageRecord[] {
-  const now = Date.now();
-  return SAMPLE_MESSAGES.map(({ name, message, status }, i) => {
-    if (status !== "pending" && status !== "approved" && status !== "rejected") {
-      throw new Error(`Unknown status in mock message data: ${status}`);
-    }
-
-    return {
-      id: `seed-${i}`,
-      nickname: name,
-      wish: message,
-      createdAt: now - (SAMPLE_MESSAGES.length - i) * 97_000,
-      status,
-      hue: Math.round(Math.random() * 50),
-    };
-  });
+interface ApiError {
+  error?: string;
 }
 
-export function loadLanterns(): Lantern[] {
-  if (typeof window === "undefined") return [];
-  const raw = localStorage.getItem(KEY);
-  if (raw) {
-    const parsed: unknown = JSON.parse(raw);
-    if (
-      Array.isArray(parsed) &&
-      parsed.every(
-        (item): item is Lantern =>
-          typeof item === "object" &&
-          item !== null &&
-          typeof item.id === "string" &&
-          typeof item.nickname === "string" &&
-          typeof item.wish === "string" &&
-          typeof item.createdAt === "number" &&
-          (item.status === "pending" ||
-            item.status === "approved" ||
-            item.status === "rejected") &&
-          typeof item.hue === "number",
-      )
-    ) {
-      return parsed;
-    }
-    throw new Error("Saved festival messages have an invalid format.");
+async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
+  const headers = new Headers(init.headers);
+  headers.set("Accept", "application/json");
+  if (init.body !== undefined) headers.set("Content-Type", "application/json");
+  const response = await fetch(path, { ...init, headers, credentials: "same-origin" });
+
+  if (response.status === 204) return undefined as T;
+  let body: unknown;
+  try {
+    body = await response.json();
+  } catch {
+    throw new Error("The lantern API returned an invalid response.");
   }
-  const s = seed();
-  localStorage.setItem(KEY, JSON.stringify(s));
-  return s;
+  if (!response.ok) {
+    const message =
+      typeof body === "object" &&
+      body !== null &&
+      "error" in body &&
+      typeof (body as ApiError).error === "string"
+        ? (body as ApiError).error!
+        : `The request failed (${response.status}).`;
+    throw new Error(message);
+  }
+  return body as T;
 }
 
-function save(list: Lantern[]) {
-  localStorage.setItem(KEY, JSON.stringify(list));
-  window.dispatchEvent(new Event(EVT));
+const apiRepository: LanternRepository = {
+  async list() {
+    await migrateLegacyBrowserRecords();
+    return request<Lantern[]>("/api/lanterns");
+  },
+  async create(input) {
+    return request<Lantern>("/api/lanterns", {
+      method: "POST",
+      headers: { "Idempotency-Key": crypto.randomUUID() },
+      body: JSON.stringify(input),
+    });
+  },
+  async updateStatus(id, status) {
+    return request<Lantern>(`/api/lanterns/${encodeURIComponent(id)}/status`, {
+      method: "PATCH",
+      body: JSON.stringify({ status }),
+    });
+  },
+  async reset() {
+    await request<void>("/api/lanterns/reset", { method: "POST", body: "{}" });
+  },
+  async exportAll() {
+    const records = await request<Lantern[]>("/api/lanterns/export");
+    return JSON.stringify(records, null, 2);
+  },
+};
+
+async function migrateLegacyBrowserRecords(): Promise<void> {
+  if (legacyMigrationComplete || typeof window === "undefined") return;
+  if (window.localStorage.getItem(LEGACY_MIGRATION_KEY) === "true") {
+    legacyMigrationComplete = true;
+    return;
+  }
+  const saved = window.localStorage.getItem(LEGACY_STORAGE_KEY);
+  if (saved === null) {
+    legacyMigrationComplete = true;
+    return;
+  }
+
+  let records: unknown;
+  try {
+    records = JSON.parse(saved) as unknown;
+  } catch {
+    throw new Error(
+      "Previous browser-stored submissions contain invalid JSON and were not changed.",
+    );
+  }
+  if (!Array.isArray(records)) {
+    throw new Error("Previous browser-stored submissions are not a record list.");
+  }
+  await request<{ imported: number }>("/api/lanterns/migrate", {
+    method: "POST",
+    body: JSON.stringify({ records }),
+  });
+  try {
+    window.localStorage.setItem(LEGACY_MIGRATION_KEY, "true");
+  } catch (error) {
+    console.error(
+      "Could not save the legacy-import marker; the server will deduplicate retries.",
+      error,
+    );
+  }
+  legacyMigrationComplete = true;
 }
+
+function notifyChange(): void {
+  if (typeof window !== "undefined") window.dispatchEvent(new Event(CHANGE_EVENT));
+}
+
+export const lanternService = {
+  async getAll() {
+    return apiRepository.list();
+  },
+  async submit(input: CreateLanternInput) {
+    const error = validateWish(input.message);
+    if (error) throw new Error(error);
+    const record = await apiRepository.create({
+      ...input,
+      name: input.name.trim().slice(0, MAX_NICK),
+      message: input.message.trim(),
+    });
+    notifyChange();
+    return record;
+  },
+  async setStatus(id: string, status: LanternStatus) {
+    const updated = await apiRepository.updateStatus(id, status);
+    notifyChange();
+    return updated;
+  },
+  async resetDemoData() {
+    await apiRepository.reset();
+    notifyChange();
+  },
+  async exportAll() {
+    return apiRepository.exportAll();
+  },
+};
 
 export function validateWish(wish: string): string | null {
-  const t = wish.trim();
-  if (!t) return "Please write a wish for Taunggyi.";
-  if (t.length > MAX_WISH) return `Keep it under ${MAX_WISH} characters.`;
+  const trimmed = wish.trim();
+  if (!trimmed) return "Please write a wish for Taunggyi.";
+  if (trimmed.length > MAX_WISH) return `Keep it under ${MAX_WISH} characters.`;
   return null;
 }
 
-export function addLantern(nickname: string, wish: string): Lantern {
-  const l: MessageRecord = {
-    id: crypto.randomUUID(),
-    nickname: nickname.trim().slice(0, MAX_NICK),
-    wish: wish.trim().slice(0, MAX_WISH),
-    createdAt: Date.now(),
-    status: "pending",
-    hue: Math.round(Math.random() * 50),
-  };
-  save([...loadLanterns(), l]);
-  return l;
-}
-
-export function setStatus(id: string, status: LanternStatus) {
-  save(loadLanterns().map((l) => (l.id === id ? { ...l, status } : l)));
-}
-
-export function resetLanterns() {
-  save(seed());
-}
-
-/** Live-synced lantern list across tabs/pages. */
 export function useLanterns() {
-  const [list, setList] = useState<Lantern[]>([]);
-  const refresh = useCallback(() => setList(loadLanterns()), []);
+  const [records, setRecords] = useState<Lantern[]>([]);
+  const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  const refresh = useCallback(async () => {
+    try {
+      const next = await lanternService.getAll();
+      setRecords((current) => (JSON.stringify(current) === JSON.stringify(next) ? current : next));
+      setError(null);
+    } catch (reason) {
+      const message =
+        reason instanceof Error ? reason.message : "Festival messages could not be loaded.";
+      setError(message);
+      console.error("Unable to load festival messages.", reason);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
   useEffect(() => {
-    refresh();
-    const onStorage = (e: StorageEvent) => e.key === KEY && refresh();
-    window.addEventListener(EVT, refresh);
-    window.addEventListener("storage", onStorage);
-    const t = setInterval(refresh, 4000);
+    const onChange = () => void refresh();
+    void refresh();
+    window.addEventListener(CHANGE_EVENT, onChange);
+    const timer = window.setInterval(onChange, 3000);
     return () => {
-      window.removeEventListener(EVT, refresh);
-      window.removeEventListener("storage", onStorage);
-      clearInterval(t);
+      window.removeEventListener(CHANGE_EVENT, onChange);
+      window.clearInterval(timer);
     };
   }, [refresh]);
-  return list;
+
+  return { lanterns: records, error, loading };
 }

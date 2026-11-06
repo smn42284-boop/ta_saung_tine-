@@ -13,6 +13,7 @@ import { useEffect, type ReactNode } from "react";
 import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
 import { appSubtitle, appTitle } from "../lib/app-config";
+import { AdminAuthProvider } from "../components/AdminAuthProvider";
 
 function NotFoundComponent() {
   return (
@@ -120,8 +121,10 @@ function RootComponent() {
 
   return (
     <QueryClientProvider client={queryClient}>
-      {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
-      <Outlet />
+      <AdminAuthProvider>
+        {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
+        <Outlet />
+      </AdminAuthProvider>
     </QueryClientProvider>
   );
 }

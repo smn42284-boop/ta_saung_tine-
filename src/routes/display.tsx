@@ -2,8 +2,9 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "@tanstack/react-router";
 import { Cog } from "lucide-react";
-import { LanternSky, Stars } from "@/components/Sky";
-import { useLanterns, type Lantern } from "@/lib/lanterns";
+import { LanternShape, LanternSky, Stars } from "@/components/Sky";
+import { FloatingWishes } from "@/components/FloatingWishes";
+import { useLanterns } from "@/lib/lanterns";
 import { appSubtitle, appTitle } from "@/lib/app-config";
 
 export const Route = createFileRoute("/display")({
@@ -23,23 +24,43 @@ export const Route = createFileRoute("/display")({
 const MILESTONES = [1000, 3000, 5000];
 
 function Display() {
-  const all = useLanterns();
-  const approved = useMemo(() => all.filter((l) => l.status === "approved"), [all]);
+  const { lanterns: all, error: loadError } = useLanterns();
+  const approved = useMemo(
+    () =>
+      all
+        .filter((lantern) => lantern.status === "approved")
+        .sort((left, right) => Date.parse(right.createdAt) - Date.parse(left.createdAt)),
+    [all],
+  );
   const count = approved.length;
-  const [cardIndex, setCardIndex] = useState(0);
   const [celebrate, setCelebrate] = useState<number | null>(null);
-  const prev = useRef<number | null>(null);
+  const [qrAvailable, setQrAvailable] = useState(false);
+  const [tcccFontAvailable, setTcccFontAvailable] = useState(false);
 
   useEffect(() => {
-    if (!approved.length) return;
-    setCardIndex(0);
-    const t = setInterval(() => {
-      setCardIndex((current) => (current + 1) % approved.length);
-    }, 7500);
-    return () => clearInterval(t);
-  }, [approved.length]);
-
-  const card: Lantern | null = approved[cardIndex] ?? null;
+    let active = true;
+    void fetch("/assets/qr.png", { method: "HEAD" })
+      .then((response) => {
+        if (active) setQrAvailable(response.ok);
+      })
+      .catch(() => {
+        if (active) setQrAvailable(false);
+      });
+    void Promise.all([
+      fetch("/assets/fonts/TCCC-UnityText-Regular.woff2", { method: "HEAD" }),
+      fetch("/assets/fonts/TCCC-UnityText-Bold.woff2", { method: "HEAD" }),
+    ])
+      .then((responses) => {
+        if (active) setTcccFontAvailable(responses.every((response) => response.ok));
+      })
+      .catch(() => {
+        if (active) setTcccFontAvailable(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
+  const prev = useRef<number | null>(null);
 
   useEffect(() => {
     if (prev.current !== null) {
@@ -53,10 +74,10 @@ function Display() {
   }, [count]);
 
   return (
-    <main className="display-main bg-sky">
+    <main className={`display-main bg-sky${tcccFontAvailable ? " has-tccc-unity-font" : ""}`}>
       <div className="display-decor" aria-hidden="true">
-        <Stars count={110} />
-        <LanternSky lanterns={approved} max={100} scale={1} interactive={false} highlightId={approved.at(-1)?.id} />
+        <Stars count={48} />
+        <LanternSky lanterns={approved} max={14} scale={0.72} interactive={false} />
       </div>
 
       <Link
@@ -75,33 +96,40 @@ function Display() {
       </header>
 
       <section className="display-stage" aria-live="polite">
-        {card ? (
-          <div
-            key={card.id}
-            className="display-wish wish-card"
-            data-long={card.wish.length > 240 ? "true" : undefined}
-          >
-            <p className="display-message font-serif text-foreground">{card.wish}</p>
-            <p className="display-name text-gold">— {card.nickname || "A friend of Ta Saung Tine"}</p>
-          </div>
-        ) : (
-          <div className="display-wish wish-card">
-            <p className="display-message font-serif text-foreground">Your festival wishes will shine here.</p>
-          </div>
+        {loadError && (
+          <p className="display-empty font-serif text-destructive" role="alert">
+            Festival wishes could not be loaded. Please contact the event team.
+          </p>
         )}
+        {approved.length ? (
+          <FloatingWishes messages={approved} />
+        ) : !loadError ? (
+          <p className="display-empty font-serif text-gold">Your festival wishes will shine here.</p>
+        ) : null}
       </section>
 
       <footer className="display-footer">
         <div className="display-counter">
           <p className="display-count font-display font-bold text-gold text-glow tabular-nums">{count.toLocaleString()}</p>
+          <LanternShape className="display-counter-lantern" size={30} hue={12} />
           <p className="display-count-label text-foreground/80">lanterns illuminated</p>
         </div>
 
-        <div className="display-festival">
-          <p className="display-festival-label font-sans text-primary-foreground">
-            <span className="rounded-full bg-primary shadow-glow">Coca-Cola · Coke Chill Festival</span>
-          </p>
-          <p className="display-qr text-muted-foreground">QR Code Coming Soon</p>
+        <div className="display-qr-section">
+          {qrAvailable ? (
+            <img
+              className="display-qr-image"
+              src="/assets/qr.png"
+              alt="Scan this QR code to share your light"
+              onError={() => setQrAvailable(false)}
+            />
+          ) : (
+            <div className="display-qr-placeholder" role="img" aria-label="QR code asset placeholder">
+              QR CODE ASSET<br />COMING SOON
+              <span>Place the event QR image at public/assets/qr.png</span>
+            </div>
+          )}
+          <p className="display-qr-instruction">SCAN TO SHARE YOUR LIGHT</p>
         </div>
       </footer>
 
