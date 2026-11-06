@@ -15,88 +15,58 @@ interface WishSlot {
 interface WishPosition {
   column: number;
   row: number;
-  spanAllColumns?: boolean;
-  columnSpan?: number;
 }
 
-function getWishSize(index: number): WishSlot["size"] {
-  if (index === 0) return "large";
-  if (index < 3) return "medium";
-  return "small";
+function hashString(value: string) {
+  let hash = 2166136261;
+  for (let index = 0; index < value.length; index++) {
+    hash = Math.imul(hash ^ value.charCodeAt(index), 16777619);
+  }
+  return hash >>> 0;
 }
 
-function getTargetCount(width: number) {
+function getTargetCount(width: number, height: number) {
+  if (height < 560) return 1;
   if (width < 700) return 2;
   if (width < 1000) return 3;
   if (width < 1400) return 4;
-  return 5;
+  if (width < 1800) return 5;
+  return 6;
 }
 
-function shuffledPositions(count: number, columns: number) {
-  const centerPosition: WishPosition = {
-    column: columns === 2 ? 0 : Math.floor((columns - 1) / 2),
-    row: 0,
-    columnSpan: columns === 2 ? 2 : columns === 4 ? 2 : 1,
-  };
-  const occupiedCenterColumns = new Set(
-    Array.from(
-      { length: centerPosition.columnSpan ?? 1 },
-      (_, offset) => centerPosition.column + offset,
-    ),
-  );
-  const positions = Array.from({ length: columns * 2 }, (_, position) => ({
-    column: position % columns,
-    row: Math.floor(position / columns),
-  })).filter((position) => position.row !== 0 || !occupiedCenterColumns.has(position.column));
-  for (let i = positions.length - 1; i > 0; i--) {
-    const swap = Math.floor(Math.random() * (i + 1));
-    [positions[i], positions[swap]] = [positions[swap]!, positions[i]!];
-  }
-  return [centerPosition, ...positions.slice(0, count - 1)];
+function getWishSize(message: Lantern): WishSlot["size"] {
+  if (message.message.length > 130) return "small";
+  const size = hashString(message.id) % 3;
+  return size === 0 ? "small" : size === 1 ? "medium" : "large";
 }
 
 export function FloatingWishes({ messages }: FloatingWishesProps) {
   const [targetCount, setTargetCount] = useState(() =>
-    typeof window === "undefined" ? 4 : getTargetCount(window.innerWidth),
+    typeof window === "undefined" ? 4 : getTargetCount(window.innerWidth, window.innerHeight),
   );
   const [slots, setSlots] = useState<WishSlot[]>([]);
   const nextMessageRef = useRef(0);
   const swapTimersRef = useRef<number[]>([]);
   const slotsRef = useRef<WishSlot[]>([]);
-  const columns = targetCount <= 2 ? 2 : targetCount <= 3 ? 3 : 4;
-  const positions = useMemo(
-    () => shuffledPositions(Math.min(targetCount, messages.length), columns),
-    [columns, messages.length, targetCount],
-  );
+  const positionsByMessageRef = useRef(new Map<string, number>());
+  const columns = targetCount <= 2 ? 2 : 3;
   const layout = useMemo(() => {
     const result = new Map<number, WishPosition>();
-    const longSlots = slots.filter((slot) => slot.message.message.length > 130);
-
-    if (!longSlots.length) {
-      slots.forEach((slot, index) => {
-        const position = positions[index];
-        if (position) result.set(slot.position, position);
+    slots.forEach((slot) => {
+      result.set(slot.position, {
+        column: slot.position % columns,
+        row: Math.floor(slot.position / columns),
       });
-      return result;
-    }
-
-    longSlots.forEach((slot, row) => {
-      result.set(slot.position, { column: 0, row, spanAllColumns: true });
-    });
-
-    const shortSlots = slots.filter((slot) => slot.message.message.length <= 130);
-    shortSlots.slice(0, columns).forEach((slot, index) => {
-      result.set(slot.position, { column: index, row: longSlots.length });
     });
     return result;
-  }, [columns, positions, slots]);
+  }, [columns, slots]);
 
   useEffect(() => {
     slotsRef.current = slots;
   }, [slots]);
 
   useEffect(() => {
-    const resize = () => setTargetCount(getTargetCount(window.innerWidth));
+    const resize = () => setTargetCount(getTargetCount(window.innerWidth, window.innerHeight));
     window.addEventListener("resize", resize);
     return () => window.removeEventListener("resize", resize);
   }, []);
@@ -108,33 +78,60 @@ export function FloatingWishes({ messages }: FloatingWishesProps) {
     }
 
     const count = Math.min(targetCount, messages.length);
-    const createSlot = (message: Lantern, index: number): WishSlot => ({
-      message,
-      position: index,
-      size: getWishSize(index),
-      phase: "entering",
-    });
+    const createSlot = (
+      message: Lantern,
+      occupied: Set<number>,
+    ): WishSlot => {
+      const capacity = columns * 2;
+      const start = hashString(message.id) % capacity;
+      const occupiedRows = Array.from({ length: 2 }, (_, row) =>
+        [...occupied].filter((position) => Math.floor(position / columns) === row).length,
+      );
+      const available = Array.from({ length: capacity }, (_, position) => position)
+        .filter((position) => !occupied.has(position))
+        .sort((left, right) => {
+          const rowDifference =
+            occupiedRows[Math.floor(left / columns)]! -
+            occupiedRows[Math.floor(right / columns)]!;
+          if (rowDifference) return rowDifference;
+          return (left - start + capacity) % capacity - (right - start + capacity) % capacity;
+        });
+      const remembered = positionsByMessageRef.current.get(message.id);
+      const position =
+        remembered !== undefined && !occupied.has(remembered)
+          ? remembered
+          : (available[0] ?? start);
+      positionsByMessageRef.current.set(message.id, position);
+      occupied.add(position);
+      return {
+        message,
+        position,
+        size: getWishSize(message),
+        phase: "entering",
+      };
+    };
 
     nextMessageRef.current = Math.max(nextMessageRef.current, count);
     setSlots((current) => {
       if (!current.length) {
-        return messages.slice(0, count).map(createSlot);
+        const occupied = new Set<number>();
+        return messages.slice(0, count).map((message) => createSlot(message, occupied));
       }
 
       const currentIds = new Set(messages.map((message) => message.id));
       const retained: WishSlot[] = current
         .filter((slot) => currentIds.has(slot.message.id))
         .slice(0, count)
-        .map((slot, index) => ({
+        .map((slot) => ({
           ...slot,
-          size: getWishSize(index),
           phase: "visible" as const,
         }));
       const visibleIds = new Set(retained.map((slot) => slot.message.id));
+      const occupied = new Set(retained.map((slot) => slot.position));
       for (const message of messages) {
         if (retained.length >= count) break;
         if (visibleIds.has(message.id)) continue;
-        retained.push(createSlot(message, retained.length));
+        retained.push(createSlot(message, occupied));
         visibleIds.add(message.id);
       }
       return retained;
@@ -160,9 +157,21 @@ export function FloatingWishes({ messages }: FloatingWishesProps) {
       setSlots(exiting);
 
       const phaseTimer = window.setTimeout(() => {
+        const occupiedPositions = new Set(
+          slotsRef.current
+            .filter((slot) => slot.position !== position)
+            .map((slot) => slot.position),
+        );
+        const nextSlot = createSlot(candidate, occupiedPositions);
         const entering = slotsRef.current.map((slot) =>
           slot.position === position
-            ? { ...slot, message: candidate, phase: "entering" as const }
+            ? {
+                ...slot,
+                message: nextSlot.message,
+                position: nextSlot.position,
+                size: nextSlot.size,
+                phase: "entering" as const,
+              }
             : slot,
         );
         slotsRef.current = entering;
@@ -170,7 +179,7 @@ export function FloatingWishes({ messages }: FloatingWishesProps) {
 
         const visibleTimer = window.setTimeout(() => {
           const visible = slotsRef.current.map((slot) =>
-            slot.position === position ? { ...slot, phase: "visible" as const } : slot,
+            slot.position === nextSlot.position ? { ...slot, phase: "visible" as const } : slot,
           );
           slotsRef.current = visible;
           setSlots(visible);
@@ -178,21 +187,18 @@ export function FloatingWishes({ messages }: FloatingWishesProps) {
         swapTimersRef.current.push(visibleTimer);
       }, 700);
       swapTimersRef.current.push(phaseTimer);
-    }, 4800);
+    }, 7500);
 
     return () => {
       window.clearInterval(timer);
       swapTimersRef.current.forEach((timerId) => window.clearTimeout(timerId));
       swapTimersRef.current = [];
     };
-  }, [messages, targetCount]);
+  }, [columns, messages, targetCount]);
 
-  const longCount = slots.filter((slot) => slot.message.message.length > 130).length;
-  const shortCount = slots.length - longCount;
-  const rowCount = Math.max(2, longCount + (shortCount > 0 ? 1 : 0));
   const gridStyle = {
     "--wish-columns": columns,
-    "--wish-rows": rowCount,
+    "--wish-rows": 2,
   } as CSSProperties;
 
   return (
@@ -200,17 +206,13 @@ export function FloatingWishes({ messages }: FloatingWishesProps) {
       {slots.map((slot, index) => {
         const position = layout.get(slot.position);
         if (!position) return null;
-        const isLong = position.spanAllColumns === true;
+        const isLong = slot.message.message.length > 130;
         return (
           <p
             key={`${slot.position}-${slot.message.id}`}
             className={`floating-wish floating-wish-${slot.size}${isLong ? " floating-wish-long" : ""} floating-wish-${slot.phase}`}
             style={{
-              gridColumn: isLong
-                ? "1 / -1"
-                : position.columnSpan
-                  ? `${position.column + 1} / span ${position.columnSpan}`
-                  : String(position.column + 1),
+              gridColumn: String(position.column + 1),
               gridRow: String(position.row + 1),
               animationDelay: `${(index % 4) * 0.25}s`,
             }}

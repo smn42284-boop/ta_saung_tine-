@@ -53,13 +53,7 @@ function AdminLogin() {
           Sign in to manage festival wishes.
         </p>
 
-        <div
-          className="mt-5 rounded-xl border border-gold/30 bg-black/20 p-3 text-sm text-gold"
-          role="note"
-        >
-          Local prototype only: credentials are validated by the development API and the session
-          uses an HttpOnly cookie. This is not company authentication or production security.
-        </div>
+      
 
         <form className="mt-6 space-y-4" onSubmit={submit}>
           <div>

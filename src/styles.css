@@ -277,23 +277,27 @@
   grid-template-rows: repeat(var(--wish-rows, 2), minmax(0, 1fr));
   align-items: center;
   justify-items: center;
-  gap: clamp(0.5rem, 2vw, 2rem);
-  padding: clamp(0.5rem, 1.5vw, 1.5rem);
+  gap: clamp(0.35rem, 1.5vw, 1.5rem);
+  padding: clamp(0.35rem, 1vw, 1rem);
   pointer-events: none;
 }
 .floating-wish {
   width: 100%;
-  max-width: min(100%, 27rem);
+  max-width: min(100%, 36rem);
+  min-width: 0;
   margin: 0;
   text-align: center;
   overflow-wrap: anywhere;
   font-family: "Share Myanmar", "Myanmar Text", "Noto Sans Myanmar", "Padauk", var(--font-serif);
-  font-size: clamp(0.85rem, 1.15vw, 1.35rem);
+  font-size: clamp(1rem, 1.35vw, 1.5rem);
   font-weight: 500;
-  line-height: 1.45;
+  line-height: 1.5;
   color: oklch(0.99 0.025 90);
-  text-shadow: 0 1px 5px oklch(0.08 0.03 255 / 0.95), 0 0 12px oklch(0.9 0.1 65 / 0.4);
-  -webkit-text-stroke: 0.25px oklch(0.08 0.03 255 / 0.8);
+  text-shadow:
+    0 2px 8px oklch(0.05 0.03 255 / 0.98),
+    0 0 14px oklch(0.9 0.1 65 / 0.58),
+    0 0 30px oklch(0.72 0.16 55 / 0.35);
+  -webkit-text-stroke: 0.3px oklch(0.08 0.03 255 / 0.88);
   text-wrap: pretty;
 }
 .floating-wish-entering {
@@ -325,20 +329,23 @@
   letter-spacing: 0.04em;
 }
 .floating-wish-medium {
-  max-width: min(100%, 30rem);
-  font-size: clamp(1rem, 1.55vw, 1.8rem);
+  max-width: min(100%, 38rem);
+  font-size: clamp(1.05rem, 1.55vw, 1.75rem);
 }
 .floating-wish-large {
-  max-width: min(100%, 32rem);
-  font-size: clamp(1.4rem, 2.8vw, 3.2rem);
+  max-width: min(100%, 40rem);
+  font-size: clamp(1.15rem, 1.9vw, 2.1rem);
   line-height: 1.25;
-  text-shadow: 0 1px 6px oklch(0.08 0.03 255 / 0.96), 0 0 18px oklch(0.9 0.1 65 / 0.52);
+  text-shadow:
+    0 2px 8px oklch(0.05 0.03 255 / 0.98),
+    0 0 18px oklch(0.93 0.12 70 / 0.68),
+    0 0 36px oklch(0.72 0.16 55 / 0.42);
 }
 .floating-wish-long {
-  max-width: min(94%, 76rem);
-  padding-inline: clamp(0.5rem, 2vw, 2rem);
-  font-size: clamp(0.95rem, 1.2vw, 1.25rem);
-  line-height: 1.35;
+  max-width: min(94%, 72rem);
+  padding-inline: clamp(0.4rem, 1.5vw, 1.5rem);
+  font-size: clamp(0.95rem, 1.35vw, 1.5rem);
+  line-height: 1.4;
 }
 .display-empty {
   margin: 0;
@@ -467,15 +474,32 @@
   .display-count-label {
     letter-spacing: 0.08em;
   }
-  .wish-field { gap: 0.5rem; }
-  .floating-wish,
+  .wish-field {
+    gap: 0.5rem;
+    padding: 0.25rem;
+  }
+  .floating-wish {
+    font-size: clamp(0.9rem, 3vw, 1.15rem);
+  }
   .floating-wish-medium {
-    font-size: clamp(0.85rem, 3vw, 1.2rem);
+    font-size: clamp(0.98rem, 3.2vw, 1.22rem);
   }
   .floating-wish-large {
-    font-size: clamp(1rem, 3.8vw, 1.5rem);
+    font-size: clamp(1.05rem, 3.5vw, 1.35rem);
   }
   .floating-wish-long {
-    font-size: clamp(0.8rem, 3vw, 1.1rem);
+    font-size: clamp(0.88rem, 2.9vw, 1.1rem);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .floating-wish {
+    animation: none;
+  }
+  .floating-wish-entering {
+    animation: wishFadeIn 0.01ms ease both;
+  }
+  .floating-wish-exiting {
+    transition-duration: 0.01ms;
   }
 }
