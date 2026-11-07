@@ -117,17 +117,31 @@ function Display() {
 
         <div className="display-qr-section">
           {qrAvailable ? (
-            <img
-              className="display-qr-image"
-              src="/assets/qr.png"
-              alt="Scan this QR code to share your light"
-              onError={() => setQrAvailable(false)}
-            />
+            <Link
+  to="/"
+  aria-label="Go to the festival wish submission page"
+  title="Share your light"
+  className="cursor-pointer"
+>
+  <img
+    className="display-qr-image"
+    src="/assets/qr.png"
+    alt="Click to share your light"
+    onError={() => setQrAvailable(false)}
+  />
+</Link>
           ) : (
+             <Link
+  to="/"
+  aria-label="Go to the festival wish submission page"
+  title="Share your light"
+  className="cursor-pointer"
+>
             <div className="display-qr-placeholder" role="img" aria-label="QR code asset placeholder">
               QR CODE ASSET<br />COMING SOON
               <span>Place the event QR image at public/assets/qr.png</span>
             </div>
+            </Link>
           )}
           <p className="display-qr-instruction">SCAN TO SHARE YOUR LIGHT</p>
         </div>
