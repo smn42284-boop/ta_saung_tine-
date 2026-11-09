@@ -239,8 +239,10 @@
   text-align: center;
 }
 .display-title {
-  font-size: clamp(2rem, 5.5vw, 6rem);
+  font-size: clamp(2rem, 5.5vw, 3rem);
   line-height: 1;
+  font-family:'Courier New', Courier, monospace;
+  font-weight:bold;
   overflow-wrap: anywhere;
 }
 .display-subtitle {
@@ -290,9 +292,9 @@
   overflow-wrap: anywhere;
   font-family: "Share Myanmar", "Myanmar Text", "Noto Sans Myanmar", "Padauk", var(--font-serif);
   font-size: clamp(1rem, 1.35vw, 1.5rem);
-  font-weight: 500;
   line-height: 1.5;
-  color: oklch(0.99 0.025 90);
+  color: oklch(0.99 0.07 100);
+  font-weight: bold;
   text-shadow:
     0 2px 8px oklch(0.05 0.03 255 / 0.98),
     0 0 14px oklch(0.9 0.1 65 / 0.58),
@@ -412,7 +414,7 @@
   justify-content: center;
   gap: 0.4rem;
   padding: 0.6rem;
-  color: oklch(0.28 0.04 255);
+  color: oklch(0.28 0.04 255)
   font-size: clamp(0.6rem, 1vw, 0.85rem);
   font-weight: 700;
 }

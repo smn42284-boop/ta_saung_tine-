@@ -34,9 +34,9 @@ function Index() {
       </div>
       
 
-      <div className="relative z-10 mx-auto flex max-w-md flex-col px-5 pb-12 pt-10">
+      <div className="relative z-10 mx-auto flex max-w-2xl flex-col px-5 pb-12 pt-10">
         <p className="text-center text-xs font-semibold uppercase tracking-[0.3em] text-gold">Coca-Cola · Coke Chill Festival</p>
-        <h1 className="mt-3 text-center font-display text-5xl leading-tight text-foreground text-glow sm:text-6xl">
+        <h1 className="display-title mt-5 text-center font-display text-4x11 leading-tight text-foreground text-glow sm:text-6xl">
           {appTitle}
         </h1>
  {!submitted && (
@@ -50,7 +50,7 @@ function Index() {
         <div className="relative mt-8">
           {loadError && (
             <p className="mb-3 text-center text-sm text-destructive" role="alert">
-              {loadError}
+             {loadError}
             </p>
           )}
           <VisitorWishForm
