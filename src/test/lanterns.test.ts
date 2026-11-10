@@ -36,6 +36,7 @@ describe("lanternService API repository", () => {
           const created: Lantern = {
             id: `message-${records.length}`,
             name: String(body["name"]),
+            employeeId: String(body["employeeId"]),
             message: String(body["message"]),
             officeLocation: body["officeLocation"] as Lantern["officeLocation"],
             status: "pending",
@@ -63,11 +64,13 @@ describe("lanternService API repository", () => {
     const initial = await lanternService.getAll();
     const first = await lanternService.submit({
       name: "Aung Aung",
+      employeeId: "EMP-1024",
       message: "ပျော်ရွှင်သော တန်ဆောင်တိုင် ဖြစ်ပါစေ",
       officeLocation: "HTY",
     });
     const second = await lanternService.submit({
       name: "Su Su",
+      employeeId: "EMP-2048",
       message: "A second wish",
       officeLocation: "HmweBe",
     });
@@ -77,6 +80,7 @@ describe("lanternService API repository", () => {
     expect(first).toMatchObject({
       id: `message-${initial.length}`,
       name: "Aung Aung",
+      employeeId: "EMP-1024",
       message: "ပျော်ရွှင်သော တန်ဆောင်တိုင် ဖြစ်ပါစေ",
       officeLocation: "HTY",
       status: "pending",
@@ -100,7 +104,7 @@ describe("lanternService API repository", () => {
       status: "rejected",
     });
     const exported = await lanternService.exportAll();
-    expect(JSON.parse(exported)).toHaveLength(records.length);
+    expect(exported).toHaveLength(records.length);
     expect(records[0]?.status).toBe("rejected");
   });
 
@@ -117,9 +121,22 @@ describe("lanternService API repository", () => {
     await expect(
       lanternService.submit({
         name: "Visitor",
+        employeeId: "EMP-1",
         message: "A wish",
         officeLocation: "CDC",
       }),
     ).rejects.toThrow("The lantern data could not be read or saved.");
+  });
+
+  it("does not send a submission without an employee ID", async () => {
+    await expect(
+      lanternService.submit({
+        name: "Visitor",
+        employeeId: "   ",
+        message: "A wish",
+        officeLocation: "CDC",
+      }),
+    ).rejects.toThrow("Please enter your employee ID.");
+    expect(fetch).not.toHaveBeenCalled();
   });
 });

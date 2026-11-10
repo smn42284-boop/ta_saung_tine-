@@ -2,6 +2,7 @@ import { createFileRoute, Outlet, useNavigate, useRouterState } from "@tanstack/
 import { useEffect, useMemo, useState } from "react";
 import { Check, X, RotateCcw, Flame, CheckCircle2, XCircle, Clock, Download, LogOut } from "lucide-react";
 import { lanternService, useLanterns, type LanternStatus } from "@/lib/lanterns";
+import { downloadApprovedLanterns } from "@/lib/lantern-export";
 import { appSubtitle, appTitle } from "@/lib/app-config";
 import { useAdminAuth } from "@/lib/use-admin-auth";
 
@@ -73,13 +74,7 @@ function Admin() {
   const exportMessages = async () => {
     setActionError(null);
     try {
-      const contents = await lanternService.exportAll();
-      const url = URL.createObjectURL(new Blob([contents], { type: "application/json" }));
-      const link = document.createElement("a");
-      link.href = url;
-      link.download = "share-the-light-submissions.json";
-      link.click();
-      URL.revokeObjectURL(url);
+      downloadApprovedLanterns(await lanternService.exportAll());
     } catch (reason) {
       setActionError(reason instanceof Error ? reason.message : "Submissions could not be exported.");
     }
@@ -116,7 +111,7 @@ function Admin() {
           <div className="flex flex-wrap gap-2">
             <button onClick={() => void exportMessages()}
               className="flex items-center gap-2 rounded-full border border-border px-4 py-2 text-sm text-muted-foreground hover:text-foreground">
-              <Download className="h-4 w-4" /> Export JSON
+              <Download className="h-4 w-4" /> Export Excel
             </button>
             <button onClick={() => void resetSamples()}
               className="flex items-center gap-2 rounded-full border border-border px-4 py-2 text-sm text-muted-foreground hover:text-foreground">

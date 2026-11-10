@@ -8,6 +8,7 @@ export type LanternLocation = (typeof OFFICE_LOCATIONS)[number];
 export interface Lantern {
   id: string;
   name: string;
+  employeeId?: string;
   message: string;
   officeLocation: LanternLocation;
   status: LanternStatus;
@@ -18,6 +19,7 @@ export type MessageRecord = Lantern;
 
 export interface CreateLanternInput {
   name: string;
+  employeeId: string;
   message: string;
   officeLocation: LanternLocation;
 }
@@ -27,11 +29,12 @@ export interface LanternRepository {
   create(input: CreateLanternInput): Promise<Lantern>;
   updateStatus(id: string, status: LanternStatus): Promise<Lantern>;
   reset(): Promise<void>;
-  exportAll(): Promise<string>;
+  exportAll(): Promise<Lantern[]>;
 }
 
 export const MAX_WISH = maxWishLength;
 export const MAX_NICK = 24;
+export const MAX_EMPLOYEE_ID = 64;
 let legacyMigrationComplete = false;
 const CHANGE_EVENT = "lut:update";
 const LEGACY_STORAGE_KEY = "lut.lanterns.v1";
@@ -89,8 +92,7 @@ const apiRepository: LanternRepository = {
     await request<void>("/api/lanterns/reset", { method: "POST", body: "{}" });
   },
   async exportAll() {
-    const records = await request<Lantern[]>("/api/lanterns/export");
-    return JSON.stringify(records, null, 2);
+    return request<Lantern[]>("/api/lanterns/export");
   },
 };
 
@@ -141,11 +143,20 @@ export const lanternService = {
     return apiRepository.list();
   },
   async submit(input: CreateLanternInput) {
+    const name = input.name.trim();
+    const employeeId = input.employeeId.trim();
+    if (!name) throw new Error("Please enter your name.");
+    if (name.length > MAX_NICK) throw new Error(`Name must be ${MAX_NICK} characters or fewer.`);
+    if (!employeeId) throw new Error("Please enter your employee ID.");
+    if (employeeId.length > MAX_EMPLOYEE_ID) {
+      throw new Error(`Employee ID must be ${MAX_EMPLOYEE_ID} characters or fewer.`);
+    }
     const error = validateWish(input.message);
     if (error) throw new Error(error);
     const record = await apiRepository.create({
       ...input,
-      name: input.name.trim().slice(0, MAX_NICK),
+      name,
+      employeeId,
       message: input.message.trim(),
     });
     notifyChange();

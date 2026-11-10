@@ -10,6 +10,7 @@ type OfficeLocation = "HTY" | "HmweBe" | "CDC" | "Other Regions";
 interface LanternRecord {
   id: string;
   name: string;
+  employeeId?: string;
   message: string;
   officeLocation: OfficeLocation;
   status: LanternStatus;
@@ -57,6 +58,10 @@ function normalizeLantern(value: unknown): LanternRecord {
     typeof record["message"] !== "string" ||
     typeof record["officeLocation"] !== "string" ||
     !locations.has(record["officeLocation"] as OfficeLocation) ||
+    (record["employeeId"] !== undefined &&
+      (typeof record["employeeId"] !== "string" ||
+        !record["employeeId"].trim() ||
+        record["employeeId"].length > 64)) ||
     typeof record["status"] !== "string" ||
     !statuses.has(record["status"] as LanternStatus) ||
     typeof record["createdAt"] !== "string" ||
@@ -64,7 +69,7 @@ function normalizeLantern(value: unknown): LanternRecord {
   ) {
     throw new Error("Lantern data contains an invalid record.");
   }
-  return {
+  const normalized: LanternRecord = {
     id: record["id"],
     name: record["name"],
     message: record["message"],
@@ -72,6 +77,10 @@ function normalizeLantern(value: unknown): LanternRecord {
     status: record["status"] as LanternStatus,
     createdAt: record["createdAt"],
   };
+  if (typeof record["employeeId"] === "string") {
+    normalized.employeeId = record["employeeId"];
+  }
+  return normalized;
 }
 
 async function readRecords(): Promise<LanternRecord[]> {
@@ -243,7 +252,15 @@ async function handleRequest(request: IncomingMessage, response: ServerResponse)
 
   if (pathname === "/api/lanterns" && method === "GET") {
     const records = await withStorageLock(readRecords);
-    sendJson(response, 200, records);
+    sendJson(
+      response,
+      200,
+      records.map((record) => {
+        const publicRecord = { ...record };
+        delete publicRecord.employeeId;
+        return publicRecord;
+      }),
+    );
     return;
   }
 
@@ -306,6 +323,9 @@ async function handleRequest(request: IncomingMessage, response: ServerResponse)
         additions.push({
           id,
           name: name.trim().slice(0, 24),
+          ...(typeof value["employeeId"] === "string" && value["employeeId"].trim()
+            ? { employeeId: value["employeeId"].trim().slice(0, 64) }
+            : {}),
           message: message.trim(),
           officeLocation,
           status: "pending",
@@ -326,11 +346,20 @@ async function handleRequest(request: IncomingMessage, response: ServerResponse)
     if (
       !isObject(body) ||
       typeof body["name"] !== "string" ||
+      !body["name"].trim() ||
+      body["name"].trim().length > 24 ||
+      typeof body["employeeId"] !== "string" ||
+      !body["employeeId"].trim() ||
+      body["employeeId"].trim().length > 64 ||
       typeof body["message"] !== "string" ||
       typeof body["officeLocation"] !== "string" ||
       !locations.has(body["officeLocation"] as OfficeLocation)
     ) {
-      sendError(response, 400, "A nickname, wish, and valid office location are required.");
+      sendError(
+        response,
+        400,
+        "A name, employee ID, wish, and valid office location are required.",
+      );
       return;
     }
     const name = body["name"].trim().slice(0, 24);
@@ -355,6 +384,7 @@ async function handleRequest(request: IncomingMessage, response: ServerResponse)
       const created: LanternRecord = {
         id: randomUUID(),
         name,
+        employeeId: (body["employeeId"] as string).trim(),
         message,
         officeLocation: body["officeLocation"] as OfficeLocation,
         status: "pending",
