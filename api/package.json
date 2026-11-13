@@ -1,0 +1,22 @@
+{
+  "name": "share-the-light-api",
+  "private": true,
+  "version": "1.0.0",
+  "main": "dist/api/src/index.js",
+  "engines": {
+    "node": "20.x"
+  },
+  "scripts": {
+    "build": "tsc",
+    "prestart": "npm run build",
+    "start": "func start"
+  },
+  "dependencies": {
+    "@azure/cosmos": "^4.9.0",
+    "@azure/functions": "^4.7.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.16.5",
+    "typescript": "^5.8.3"
+  }
+}
