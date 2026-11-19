@@ -1,74 +1,76 @@
 # Share the Light
 
-A Tazaungdaing Festival wish wall with a live all-plant display, employee submissions,
-and PIN-protected moderation, backed by Azure Cosmos DB for NoSQL.
+An interactive digital wish wall developed for CCPBM's Ta Saung Tine Festival celebration. The application allows employees from different company locations to submit festival wishes and share them on a centralized live display. 
 
-This project was built with [Lovable](https://lovable.dev).
+The project aims to encourage employee engagement, celebrate the spirit of Ta Saung Tine and create a shared digital experience across CCPBM locations. 
 
-## Build with Lovable
 
-Continue developing this project in the [Lovable editor](https://lovable.dev/projects/d4b71084-67ff-4358-92d5-632768a476b9).
-
-- **Ship faster**: describe what you want to build and Lovable handles the code.
-- **Stay in sync**: every change made in Lovable is committed straight to this repository.
-- **Full ownership**: this code is yours. Push to `main` on GitHub and your changes sync back into Lovable, ready for your next prompt.
+## Project Overview 
+Project Name: Share the Light 
+Event: Ta Saung Tine Festival 2026 
+Organization: Coca Cola Pinya Beverages Myannmar 
+Project Type: Internal Employee Engagement Application 
 
 ## Development
 
-Prefer working locally? You need Node.js and npm — [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating).
+- Encourage employee participation in the Ta Saung Tine Festival.
 
-```sh
-git clone <this-repository-url>
-cd <repository-name>
-npm i
-npm run dev
-```
+- Provide a centralized platform for collecting employee wishes.
 
-## Pages
+- Display approved wishes from different company locations on a shared screen.
 
-- `/`: employee name, company email, plant and a wish with at least three
-  non-whitespace characters, with no application character maximum.
-- `/display`: live TV display of approved wishes from HTY, HB, CDC and JC, with aggregate plant counts.
-- `/submit`: redirects to `/`, preserving existing submission QR links.
-- `/admin`: PIN login, auto-approval, moderation, search, CSV export and confirmed clear-all.
-- `/admin/login`: redirects to `/admin`.
+- Create an interactive and engaging festival experience.
 
-QR codes can point to the root domain to open the submission form immediately.
-Static Web Apps rewrites non-API/non-asset navigation to `/index.html`, supporting
-direct visits and refreshes on `/display`, `/submit` and `/admin`.
+- Support centralized content moderation and management.
 
-The display renders its last public snapshot from localStorage immediately and refreshes
-every five seconds without a blocking spinner. Only the latest 120 approved wishes are
-downloaded; counts include **all** approved wishes. A missing/unreachable API activates
-a browser demo labeled on Submit and Admin (see below); other server errors leave the last snapshot
-visible with a retry notice. This avoids a network wait for cached content, but cannot
-guarantee literal zero-millisecond browser rendering or the first visit's load time.
-Do not use the former browser-only demo records as event data; they are not uploaded.
+## Features 
 
-The clean display has no title stack or demo banner, leaving the official background
-visible. Only unique approved wishes are shown, up to fourteen at once.
-One to four wishes form a centered cluster with matching columns; five to eight expand
-into three or four vertically centered desktop columns. Nine or more use the full
-four-column independent flex masonry wall. Phones/tablets use one or two columns.
-The full-width upper sky stage
-runs from 2.5% to 78% of the screen with 3% side margins and 16px gaps. Only column four
-has a 210px top spacer to clear the artwork; the other columns have modest top spacing.
-Initial and incoming wishes balance estimated/measured column heights, then stay locked
-to their assigned column through edits, font loading, moderation and rotations.
-Only a responsive or wish-count-driven column-count change redistributes cards.
-When more than fourteen unique wishes are available, every three seconds one column's
-top card fades upward and out; a different, off-screen wish enters
-at the bottom of that same column. Remaining items glide vertically for 700ms, without
-cross-column reflow. When fewer than fourteen approved wishes exist, only those available
-are shown, without duplicates. New arrivals take priority in the next
-rotation and briefly glow with a `✨ New` badge.
-When all wishes are already visible, cards remain mounted: no repeated frames or
-duplicates are generated to fill slots. Cards have aligned widths up to 380px, compact
-20px corner ornaments, and natural content height. Long messages use a smaller font,
-with no height cap, truncation or inner scrollbars. The whole wall scrolls if full
-messages exceed the safe sky area.
-Wishes have no application length cap, but Cosmos DB's **2 MB document limit**
-and hosting/browser-storage limits still apply. Cosmos size failures return HTTP 413.
+1) Employee Wish Submission
+-- Employees can access the application through a QR code
+-- Submit their name, employee email, location and a wish
+-- Submit wishes in Burmese or English
+
+   <img width="1919" height="1015" alt="image" src="https://github.com/user-attachments/assets/cc64eddd-cda1-431f-b209-055f90c421f1" />
+   
+2) Live Wish Display
+-- Display approved employee wishes on a shared screen
+-- Show wishes from participating company locations.
+-- Automatically refresh the display to show newly approved wishes.
+
+<img width="1897" height="1010" alt="image" src="https://github.com/user-attachments/assets/424438dd-d7d6-4660-9c3a-196c932876a6" />
+
+3) Admin Management
+-- PIN-protected administrator access
+-- Admin can review, approve, or reject submitted wishes
+-- Manage automatic approval settings
+-- Search and export wish records
+-- Clear submitted wishes when required
+
+   <img width="1880" height="967" alt="image" src="https://github.com/user-attachments/assets/13664c29-036a-4209-8b41-8d3373bb3381" />
+
+   <img width="1884" height="1006" alt="image" src="https://github.com/user-attachments/assets/334f8b54-cff0-4cff-b0ee-b5e783203376" />
+
+
+## Technology Stack
+
+Frontend: JavaScript 
+
+Backend: Node.js / TypeScript
+
+Database: Azure Cosmos DB for NoSQL
+
+Hosting: Azure Static Web Apps
+
+Version Control: GitHub
+
+Development Platform: Lovable
+
+## Application Pages 
+/ =>  Employee wish submission form 
+/display  => Live display of approved wishes 
+/ admin => Administrator dashboard 
+/ submit => Redirects to the submission page 
+
 
 ## Azure Static Web Apps and Cosmos DB
 
