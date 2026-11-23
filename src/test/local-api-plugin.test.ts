@@ -81,7 +81,10 @@ describe("dev-only Vite middleware", () => {
     expect((await send("/wishes/all", "DELETE")).status).toBe(200);
     expect(
       await (await fetch(`${base}/wishes?status=approved`)).json(),
-    ).toEqual({ wishes: [], counts: { HTY: 0, HB: 0, CDC: 0, JC: 0 } });
+    ).toEqual({
+      wishes: [],
+      counts: { HTY: 0, HB: 0, CDC: 0, JC: 0 },
+    });
     expect(await (await fetch(`${base}/settings`)).json()).toEqual({
       autoApprove: false,
     });
@@ -134,6 +137,53 @@ describe("dev-only Vite middleware", () => {
     ).toEqual({ autoApprove: false });
   });
 
+  it("persists one local-dev reaction per visitor and approved wish", () => {
+    const state = createLocalState();
+    const wish = state.wishes[0]!;
+    const visitorId = "22c6c6d4-0b2d-4c2b-9d8b-784e045c63c1";
+    const react = (reaction: string | null) =>
+      handleLocalRequest(state, {
+        path: `/wishes/${wish.id}/reactions`,
+        method: "POST",
+        data: { plant: wish.plant, visitorId, reaction },
+      });
+
+    expect(react("love").status).toBe(200);
+    expect(react("thankful").body).toMatchObject({
+      reactions: { like: 0, love: 0, haha: 0, wow: 0, thankful: 1 },
+      myReaction: "thankful",
+    });
+    expect(state.reactions).toHaveLength(1);
+    const display = handleLocalRequest(state, {
+      path: `/wishes?status=approved&visitorId=${visitorId}`,
+      method: "GET",
+    });
+    const displayedWishes = (
+      display.body as {
+        wishes: {
+          id: string;
+          reactions: Record<string, number>;
+          myReaction: string | null;
+        }[];
+      }
+    ).wishes;
+    expect(displayedWishes.find((item) => item.id === wish.id)).toMatchObject({
+      reactions: { like: 0, love: 0, haha: 0, wow: 0, thankful: 1 },
+      myReaction: "thankful",
+    });
+    expect(react(null).body).toMatchObject({
+      reactions: { like: 0, love: 0, haha: 0, wow: 0, thankful: 0 },
+      myReaction: null,
+    });
+    expect(state.reactions).toHaveLength(0);
+
+    wish.status = "pending";
+    expect(react("like")).toMatchObject({
+      status: 404,
+      body: { error: "Wish not found." },
+    });
+  });
+
   it("accepts and edits wishes larger than the former 16 KB request cap", async () => {
     const message =
       "May this festival bring light and lasting joy to every colleague. ".repeat(
@@ -175,5 +225,12 @@ describe("dev-only Vite middleware", () => {
     const migrated = parseLocalState(state);
     expect(migrated.wishes[0]!.employee_name).toBe("Sample Light 1");
     expect(migrated.wishes[1]!.employee_name).toBe("Aye · HB");
+  });
+
+  it("reports malformed local reaction data instead of silently clearing it", async () => {
+    const { parseLocalState } = await import("../../shared/local-api");
+    expect(() =>
+      parseLocalState({ ...createLocalState(), reactions: "invalid" }),
+    ).toThrow("Local festival data contains invalid reactions.");
   });
 });

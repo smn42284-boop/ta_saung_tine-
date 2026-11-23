@@ -1,4 +1,4 @@
-import { randomUUID, timingSafeEqual } from "node:crypto";
+import { createHash, randomUUID, timingSafeEqual } from "node:crypto";
 import type {
   HttpRequest,
   HttpResponseInit,
@@ -6,10 +6,15 @@ import type {
 } from "@azure/functions";
 import type { PatchOperation } from "@azure/cosmos";
 import {
+  emptyReactionCounts,
+  isAnonymousVisitorId,
   isPlant,
+  isReaction,
   parseWishInput,
   validateWish,
+  type DisplayWish,
   type PublicWish,
+  type ReactionType,
   type Wish,
   type PlantCounts,
 } from "../../shared/wishes";
@@ -54,6 +59,72 @@ async function body(request: HttpRequest): Promise<Record<string, unknown>> {
 
 function response(jsonBody: unknown, status = 200): HttpResponseInit {
   return { status, jsonBody, headers: { "Cache-Control": "no-store" } };
+}
+
+function hashVisitorId(visitorId: string): string {
+  return createHash("sha256").update(visitorId).digest("hex");
+}
+
+function reactionDocumentId(wishId: string, visitorHash: string): string {
+  return `reaction-${createHash("sha256").update(`${wishId}:${visitorHash}`).digest("hex")}`;
+}
+
+interface ReactionCountRow {
+  wishId: string;
+  reaction: ReactionType;
+  count: number;
+}
+
+async function reactionSummaries(
+  container: Awaited<ReturnType<typeof getContainer>>,
+  wishes: PublicWish[],
+  visitorHash?: string,
+): Promise<DisplayWish[]> {
+  const summaries = new Map(
+    wishes.map((wish) => [
+      wish.id,
+      {
+        reactions: emptyReactionCounts(),
+        myReaction: null as ReactionType | null,
+      },
+    ]),
+  );
+  if (!wishes.length) return [];
+  const wishIds = wishes.map((wish) => wish.id);
+  const totals = await container.items
+    .query<ReactionCountRow>({
+      query:
+        "SELECT c.wishId, c.reaction, COUNT(1) AS count FROM c WHERE c.kind = @kind AND ARRAY_CONTAINS(@wishIds, c.wishId) GROUP BY c.wishId, c.reaction",
+      parameters: [
+        { name: "@kind", value: "reaction" },
+        { name: "@wishIds", value: wishIds },
+      ],
+    })
+    .fetchAll();
+  for (const row of totals.resources) {
+    const summary = summaries.get(row.wishId);
+    if (summary && isReaction(row.reaction))
+      summary.reactions[row.reaction] = row.count;
+  }
+  if (visitorHash) {
+    const selections = await container.items
+      .query<{ wishId: string; reaction: ReactionType }>({
+        query:
+          "SELECT c.wishId, c.reaction FROM c WHERE c.kind = @kind AND c.visitorHash = @visitorHash AND ARRAY_CONTAINS(@wishIds, c.wishId)",
+        parameters: [
+          { name: "@kind", value: "reaction" },
+          { name: "@visitorHash", value: visitorHash },
+          { name: "@wishIds", value: wishIds },
+        ],
+      })
+      .fetchAll();
+    for (const selection of selections.resources) {
+      const summary = summaries.get(selection.wishId);
+      if (summary && isReaction(selection.reaction))
+        summary.myReaction = selection.reaction;
+    }
+  }
+  return wishes.map((wish) => ({ ...wish, ...summaries.get(wish.id)! }));
 }
 
 function errorDetails(error: unknown): string {
@@ -126,11 +197,14 @@ export async function wishes(request: HttpRequest): Promise<HttpResponseInit> {
     if (status === "all") {
       const { resources } = await container.items
         .query<Wish>(
-          "SELECT c.id, c.employee_name, c.email, c.plant, c.message, c.status, c.created_on FROM c WHERE c.id != 'app-settings' ORDER BY c.created_on DESC",
+          "SELECT c.id, c.employee_name, c.email, c.plant, c.message, c.status, c.created_on FROM c WHERE c.id != 'app-settings' AND (NOT IS_DEFINED(c.kind) OR c.kind != 'reaction') ORDER BY c.created_on DESC",
         )
         .fetchAll();
       return response({ wishes: resources.map(fullWish) });
     }
+    const visitorId = request.query.get("visitorId");
+    if (visitorId !== null && !isAnonymousVisitorId(visitorId))
+      throw new HttpError(400, "A valid anonymous visitor ID is required.");
     const [latest, totals] = await Promise.all([
       container.items
         .query<PublicWish>(
@@ -146,7 +220,14 @@ export async function wishes(request: HttpRequest): Promise<HttpResponseInit> {
     const counts: PlantCounts = { HTY: 0, HB: 0, CDC: 0, JC: 0 };
     for (const row of totals.resources)
       if (isPlant(row.plant)) counts[row.plant] = row.count;
-    return response({ wishes: latest.resources, counts });
+    return response({
+      wishes: await reactionSummaries(
+        container,
+        latest.resources,
+        visitorId ? hashVisitorId(visitorId) : undefined,
+      ),
+      counts,
+    });
   }
   const input = await body(request);
   let valid;
@@ -168,6 +249,60 @@ export async function wishes(request: HttpRequest): Promise<HttpResponseInit> {
   };
   await container.items.create(wish);
   return response(wish, 201);
+}
+
+export async function wishReaction(
+  request: HttpRequest,
+): Promise<HttpResponseInit> {
+  if (request.method !== "POST")
+    throw new HttpError(405, "Method not allowed.");
+  const id = request.params.id;
+  if (!id || id === "app-settings" || id === "all")
+    throw new HttpError(400, "Invalid wish ID.");
+  const input = await body(request);
+  if (!isPlant(input.plant))
+    throw new HttpError(400, "A valid plant partition key is required.");
+  if (!isAnonymousVisitorId(input.visitorId))
+    throw new HttpError(400, "A valid anonymous visitor ID is required.");
+  if (input.reaction !== null && !isReaction(input.reaction))
+    throw new HttpError(400, "Invalid reaction.");
+
+  const container = await getContainer();
+  const { resource: wish } = await container.item(id, input.plant).read<Wish>();
+  if (
+    !wish ||
+    wish.id !== id ||
+    wish.plant !== input.plant ||
+    wish.status !== "approved"
+  ) {
+    throw new HttpError(404, "Wish not found.");
+  }
+
+  const visitorHash = hashVisitorId(input.visitorId);
+  const item = container.item(reactionDocumentId(id, visitorHash), input.plant);
+  if (input.reaction === null) {
+    try {
+      await item.delete();
+    } catch (error) {
+      if (errorCode(error) !== 404) throw error;
+    }
+  } else {
+    await container.items.upsert({
+      id: reactionDocumentId(id, visitorHash),
+      plant: input.plant,
+      kind: "reaction",
+      wishId: id,
+      visitorHash,
+      reaction: input.reaction,
+      updatedAt: new Date().toISOString(),
+    });
+  }
+  const [summary] = await reactionSummaries(container, [wish], visitorHash);
+  if (!summary) throw new Error("Reaction summary was not returned.");
+  return response({
+    reactions: summary.reactions,
+    myReaction: summary.myReaction,
+  });
 }
 
 export async function wishById(

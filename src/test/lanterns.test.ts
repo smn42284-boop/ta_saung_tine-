@@ -17,6 +17,8 @@ const data = {
       plant: "CDC",
       message: "Let hope shine",
       created_on: "2026-11-10T00:00:00Z",
+      reactions: { like: 0, love: 0, haha: 0, wow: 0, thankful: 0 },
+      myReaction: null,
     },
   ],
   counts: { HTY: 9, HB: 4, CDC: 132, JC: 2 },
@@ -24,7 +26,7 @@ const data = {
 
 describe("API lantern service and instant display cache", () => {
   beforeEach(() => {
-    localStorage.clear();
+    window.localStorage.clear();
   });
   afterEach(() => {
     vi.unstubAllGlobals();
@@ -32,7 +34,7 @@ describe("API lantern service and instant display cache", () => {
   });
 
   it("renders cached wishes synchronously while a fresh request is unresolved", () => {
-    localStorage.setItem(DISPLAY_CACHE_KEY, JSON.stringify(data));
+    window.localStorage.setItem(DISPLAY_CACHE_KEY, JSON.stringify(data));
     vi.stubGlobal(
       "fetch",
       vi.fn(() => new Promise(() => {})),
@@ -53,7 +55,9 @@ describe("API lantern service and instant display cache", () => {
       await vi.advanceTimersByTimeAsync(1);
     });
     expect(result.current.counts.CDC).toBe(132);
-    expect(JSON.parse(localStorage.getItem(DISPLAY_CACHE_KEY)!)).toEqual(data);
+    expect(JSON.parse(window.localStorage.getItem(DISPLAY_CACHE_KEY)!)).toEqual(
+      data,
+    );
     await act(async () => {
       await vi.advanceTimersByTimeAsync(5000);
     });
@@ -61,7 +65,7 @@ describe("API lantern service and instant display cache", () => {
   });
 
   it("keeps stale data visible on errors and surfaces the failed refresh", async () => {
-    localStorage.setItem(DISPLAY_CACHE_KEY, JSON.stringify(data));
+    window.localStorage.setItem(DISPLAY_CACHE_KEY, JSON.stringify(data));
     vi.stubGlobal(
       "fetch",
       vi.fn().mockResolvedValue(

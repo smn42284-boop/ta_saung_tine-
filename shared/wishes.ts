@@ -3,6 +3,24 @@ export type Plant = (typeof PLANTS)[number];
 export type WishStatus = "approved" | "pending" | "rejected";
 export const EMAIL_DOMAIN = "@coca-cola.com.mm";
 export const MAX_NAME = 80;
+export const REACTIONS = ["like", "love", "haha", "wow", "thankful"] as const;
+export type ReactionType = (typeof REACTIONS)[number];
+export type ReactionCounts = Record<ReactionType, number>;
+
+export function emptyReactionCounts(): ReactionCounts {
+  return { like: 0, love: 0, haha: 0, wow: 0, thankful: 0 };
+}
+
+export function isReaction(value: unknown): value is ReactionType {
+  return REACTIONS.some((reaction) => reaction === value);
+}
+
+export function isAnonymousVisitorId(value: unknown): value is string {
+  return (
+    typeof value === "string" &&
+    /^[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}$/i.test(value)
+  );
+}
 
 export interface PublicWish {
   id: string;
@@ -10,6 +28,11 @@ export interface PublicWish {
   plant: Plant;
   message: string;
   created_on: string;
+}
+
+export interface DisplayWish extends PublicWish {
+  reactions: ReactionCounts;
+  myReaction: ReactionType | null;
 }
 
 export interface Wish extends PublicWish {
@@ -26,7 +49,7 @@ export interface WishInput {
 
 export type PlantCounts = Record<Plant, number>;
 export interface DisplayData {
-  wishes: PublicWish[];
+  wishes: DisplayWish[];
   counts: PlantCounts;
 }
 

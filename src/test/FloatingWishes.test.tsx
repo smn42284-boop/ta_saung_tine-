@@ -16,6 +16,8 @@ function wish(id: string): Lantern {
     message: "Let hope shine",
     status: "approved",
     createdAt: "2026-11-10T00:00:00Z",
+    reactions: { like: 0, love: 0, haha: 0, wow: 0, thankful: 0 },
+    myReaction: null,
   };
 }
 

@@ -6,6 +6,7 @@ import {
   settings,
   wishById,
   wishes,
+  wishReaction,
   withErrors,
 } from "../src/handlers";
 
@@ -66,6 +67,9 @@ describe("Cosmos-backed Functions", () => {
       items: { query: mocks.query, create: mocks.create, upsert: mocks.upsert },
       item: mocks.item,
     });
+    mocks.query.mockReturnValue({
+      fetchAll: async () => ({ resources: [] }),
+    });
     mocks.item.mockReturnValue({
       read: mocks.read,
       patch: mocks.patch,
@@ -104,6 +108,47 @@ describe("Cosmos-backed Functions", () => {
     expect(mocks.query.mock.calls[0]?.[0]).toContain(
       "SELECT TOP 120 c.id, c.employee_name, c.plant, c.message, c.created_on",
     );
+  });
+
+  it("returns shared reaction totals and only the requesting visitor's selection", async () => {
+    const visitorId = "22c6c6d4-0b2d-4c2b-9d8b-784e045c63c1";
+    const publicWish = {
+      id: record.id,
+      employee_name: record.employee_name,
+      plant: record.plant,
+      message: record.message,
+      created_on: record.created_on,
+    };
+    mocks.query
+      .mockReturnValueOnce({
+        fetchAll: async () => ({ resources: [publicWish] }),
+      })
+      .mockReturnValueOnce({
+        fetchAll: async () => ({ resources: [{ plant: "HB", count: 1 }] }),
+      })
+      .mockReturnValueOnce({
+        fetchAll: async () => ({
+          resources: [{ wishId: record.id, reaction: "love", count: 3 }],
+        }),
+      })
+      .mockReturnValueOnce({
+        fetchAll: async () => ({
+          resources: [{ wishId: record.id, reaction: "love" }],
+        }),
+      });
+
+    const result = await invoke(
+      wishes,
+      request("GET", `wishes?status=approved&visitorId=${visitorId}`),
+    );
+    expect(result.jsonBody.wishes).toEqual([
+      {
+        ...publicWish,
+        reactions: { like: 0, love: 3, haha: 0, wow: 0, thankful: 0 },
+        myReaction: "love",
+      },
+    ]);
+    expect(JSON.stringify(result.jsonBody)).not.toContain("email");
   });
 
   it.each([
@@ -146,6 +191,87 @@ describe("Cosmos-backed Functions", () => {
       request("GET", "wishes?status=all", undefined, "custom-pin"),
     );
     expect(result.jsonBody).toEqual({ wishes: [record] });
+    expect(mocks.query.mock.calls.at(-1)?.[0]).toContain(
+      "NOT IS_DEFINED(c.kind) OR c.kind != 'reaction'",
+    );
+  });
+
+  it("stores one reaction per visitor and wish, and lets that visitor change or remove it", async () => {
+    const visitorId = "22c6c6d4-0b2d-4c2b-9d8b-784e045c63c1";
+    mocks.read.mockResolvedValue({ resource: record });
+    mocks.query.mockImplementation((spec) => ({
+      fetchAll: async () => ({
+        resources: spec.query.includes("COUNT(1)")
+          ? [{ wishId: record.id, reaction: "thankful", count: 1 }]
+          : [{ wishId: record.id, reaction: "thankful" }],
+      }),
+    }));
+
+    const sendReaction = (reaction: unknown) =>
+      invoke(
+        wishReaction,
+        request("POST", "wishes/wish-1/reactions", {
+          plant: "HB",
+          visitorId,
+          reaction,
+        }),
+      );
+    const first = await sendReaction("love");
+    const changed = await sendReaction("thankful");
+    expect(first.status).toBe(200);
+    expect(changed.jsonBody).toEqual({
+      reactions: { like: 0, love: 0, haha: 0, wow: 0, thankful: 1 },
+      myReaction: "thankful",
+    });
+    const firstDocument = mocks.upsert.mock.calls[0]![0];
+    const changedDocument = mocks.upsert.mock.calls[1]![0];
+    expect(firstDocument.id).toBe(changedDocument.id);
+    expect(firstDocument).toMatchObject({
+      plant: "HB",
+      kind: "reaction",
+      wishId: "wish-1",
+      reaction: "love",
+    });
+    expect(firstDocument.visitorHash).not.toBe(visitorId);
+
+    mocks.query.mockReturnValue({
+      fetchAll: async () => ({ resources: [] }),
+    });
+    const removed = await sendReaction(null);
+    expect(removed.jsonBody).toEqual({
+      reactions: { like: 0, love: 0, haha: 0, wow: 0, thankful: 0 },
+      myReaction: null,
+    });
+    expect(mocks.delete).toHaveBeenCalledOnce();
+  });
+
+  it("rejects reactions for unapproved wishes and invalid visitor IDs", async () => {
+    const visitorId = "22c6c6d4-0b2d-4c2b-9d8b-784e045c63c1";
+    mocks.read.mockResolvedValue({
+      resource: { ...record, status: "pending" },
+    });
+    const pending = await invoke(
+      wishReaction,
+      request("POST", "wishes/wish-1/reactions", {
+        plant: "HB",
+        visitorId,
+        reaction: "like",
+      }),
+    );
+    expect(pending.status).toBe(404);
+    expect(mocks.upsert).not.toHaveBeenCalled();
+
+    mocks.item.mockClear();
+    const invalidVisitor = await invoke(
+      wishReaction,
+      request("POST", "wishes/wish-1/reactions", {
+        plant: "HB",
+        visitorId: "anonymous",
+        reaction: "like",
+      }),
+    );
+    expect(invalidVisitor.status).toBe(400);
+    expect(mocks.item).not.toHaveBeenCalled();
   });
 
   it.each([true, false])(
@@ -231,7 +357,9 @@ describe("Cosmos-backed Functions", () => {
     });
     expect(
       (await invoke(settings, request("GET", "settings"))).jsonBody,
-    ).toEqual({ autoApprove: true });
+    ).toEqual({
+      autoApprove: true,
+    });
     expect(
       (await invoke(wishes, request("POST", "wishes", record))).jsonBody.status,
     ).toBe("approved");
@@ -246,7 +374,9 @@ describe("Cosmos-backed Functions", () => {
     ).toEqual({ autoApprove: false });
     expect(
       (await invoke(settings, request("GET", "settings"))).jsonBody,
-    ).toEqual({ autoApprove: false });
+    ).toEqual({
+      autoApprove: false,
+    });
     expect(
       (await invoke(wishes, request("POST", "wishes", record))).jsonBody.status,
     ).toBe("pending");
@@ -260,7 +390,9 @@ describe("Cosmos-backed Functions", () => {
     ).toEqual({ autoApprove: true });
     expect(
       (await invoke(settings, request("GET", "settings"))).jsonBody,
-    ).toEqual({ autoApprove: true });
+    ).toEqual({
+      autoApprove: true,
+    });
     expect(mocks.upsert).toHaveBeenCalledTimes(3);
   });
 

@@ -1,13 +1,19 @@
 import { useEffect, useState } from "react";
-import { apiRequest, LOCAL_API_STORAGE_KEY } from "./api-client";
+import { apiRequest, getApiMode, LOCAL_API_STORAGE_KEY } from "./api-client";
 export { apiRequest } from "./api-client";
 import {
   PLANTS,
   MAX_NAME,
   parseWishInput,
+  emptyReactionCounts,
+  isAnonymousVisitorId,
   isPlant,
+  isReaction,
+  REACTIONS,
   type DisplayData,
+  type DisplayWish,
   type PlantCounts,
+  type ReactionType,
   type Wish,
   type WishInput,
   type WishStatus,
@@ -32,11 +38,28 @@ export interface Lantern {
   officeLocation: LanternLocation;
   status: WishStatus;
   createdAt: string;
+  reactions: DisplayWish["reactions"];
+  myReaction: ReactionType | null;
 }
 
 export const DISPLAY_CACHE_KEY = "share-light.display.v1";
+export const REACTION_VISITOR_KEY = "share-light.reaction-visitor.v1";
 const CHANGE_EVENT = "share-light:update";
 const emptyCounts = (): PlantCounts => ({ HTY: 0, HB: 0, CDC: 0, JC: 0 });
+
+export function getReactionVisitorId(): string {
+  try {
+    const saved = window.localStorage.getItem(REACTION_VISITOR_KEY);
+    if (isAnonymousVisitorId(saved)) return saved;
+    const visitorId = window.crypto.randomUUID();
+    window.localStorage.setItem(REACTION_VISITOR_KEY, visitorId);
+    return visitorId;
+  } catch {
+    throw new Error(
+      "Your browser could not save an anonymous visitor ID. Enable site storage to use reactions.",
+    );
+  }
+}
 
 export function parseDisplayData(value: unknown): DisplayData {
   if (
@@ -50,7 +73,7 @@ export function parseDisplayData(value: unknown): DisplayData {
   ) {
     throw new Error("Invalid display data.");
   }
-  const wishes = value.wishes.map((wish: unknown) => {
+  const wishes = value.wishes.map((wish: unknown): DisplayWish => {
     if (!wish || typeof wish !== "object")
       throw new Error("Invalid display wish.");
     const item = wish as Record<string, unknown>;
@@ -65,12 +88,36 @@ export function parseDisplayData(value: unknown): DisplayData {
       throw new Error("Invalid display wish.");
     }
     // Whitelist the public projection: never persist an email in the display cache.
+    const reactions = emptyReactionCounts();
+    if ("reactions" in item) {
+      if (!item["reactions"] || typeof item["reactions"] !== "object")
+        throw new Error("Invalid display reaction counts.");
+      for (const reaction of REACTIONS) {
+        const count: unknown = Reflect.get(item["reactions"], reaction);
+        if (
+          typeof count !== "number" ||
+          !Number.isSafeInteger(count) ||
+          count < 0
+        ) {
+          throw new Error("Invalid display reaction count.");
+        }
+        reactions[reaction] = count;
+      }
+    }
+    const myReaction =
+      "myReaction" in item && item["myReaction"] !== null
+        ? item["myReaction"]
+        : null;
+    if (myReaction !== null && !isReaction(myReaction))
+      throw new Error("Invalid visitor reaction.");
     return {
       id: item["id"],
       employee_name: item["employee_name"],
       message: item["message"],
       plant: item["plant"],
       created_on: item["created_on"],
+      reactions,
+      myReaction,
     };
   });
   const counts = emptyCounts();
@@ -111,6 +158,8 @@ function toLantern(wish: DisplayData["wishes"][number] | Wish): Lantern {
     officeLocation: wish.plant,
     createdAt: wish.created_on,
     status: "status" in wish ? wish.status : "approved",
+    reactions: "reactions" in wish ? wish.reactions : emptyReactionCounts(),
+    myReaction: "myReaction" in wish ? wish.myReaction : null,
     ...("email" in wish ? { email: wish.email } : {}),
   };
 }
@@ -176,6 +225,25 @@ export const lanternService = {
     }
     notifyChange();
   },
+  async react(
+    wish: Lantern,
+    reaction: ReactionType | null,
+  ): Promise<{
+    reactions: Lantern["reactions"];
+    myReaction: ReactionType | null;
+    isLocalDemo: boolean;
+  }> {
+    const result = await apiRequest<{
+      reactions: Lantern["reactions"];
+      myReaction: ReactionType | null;
+    }>(`/wishes/${encodeURIComponent(wish.id)}/reactions`, "POST", {
+      plant: wish.officeLocation,
+      visitorId: getReactionVisitorId(),
+      reaction,
+    });
+    notifyChange();
+    return { ...result, isLocalDemo: getApiMode() === "browser" };
+  },
 };
 
 export function useLanterns() {
@@ -190,9 +258,10 @@ export function useLanterns() {
       if (inFlight) return;
       inFlight = true;
       try {
+        const visitorId = getReactionVisitorId();
         const next = parseDisplayData(
           await apiRequest<unknown>(
-            "/wishes?status=approved",
+            `/wishes?status=approved&visitorId=${encodeURIComponent(visitorId)}`,
             "GET",
             undefined,
             undefined,

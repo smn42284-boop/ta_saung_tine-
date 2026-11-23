@@ -728,6 +728,15 @@
 .kanote-card-exiting {
   animation: kanoteExit 750ms ease-in both;
 }
+@media (hover: hover) {
+  .kanote-card:hover {
+    border-color: #ffe59b;
+    filter: brightness(1.06);
+  }
+}
+.kanote-card:focus-within {
+  border-color: #ffe59b;
+}
 /* Keep Safari's fallback separate so CSS optimization preserves both variants. */
 @supports (-webkit-backdrop-filter: blur(1px)) {
   .kanote-card {
@@ -747,6 +756,130 @@
   display: grid;
   gap: 8px;
   min-width: 0;
+}
+.wish-reactions {
+  position: relative;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 5px;
+  min-width: 0;
+  margin-top: 8px;
+  color: #fde68a;
+  font-family: "TCCC Unity Text", sans-serif;
+  font-size: 0.72rem;
+}
+.wish-reaction-summary {
+  display: flex;
+  flex: 1 1 auto;
+  flex-wrap: wrap;
+  gap: 3px 7px;
+  min-width: 0;
+}
+.wish-reaction-count {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  white-space: nowrap;
+}
+.wish-reaction-trigger,
+.wish-reaction-option {
+  display: inline-flex;
+  min-height: 40px;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  border: 1px solid #f5d07666;
+  border-radius: 999px;
+  padding: 4px 9px;
+  background: #10162999;
+  color: #fde68a;
+  cursor: pointer;
+  transition:
+    background-color 160ms ease,
+    border-color 160ms ease,
+    color 160ms ease;
+}
+.wish-reaction-trigger:hover,
+.wish-reaction-option:hover,
+.wish-reaction-trigger:focus-visible,
+.wish-reaction-option:focus-visible {
+  border-color: #ffe59b;
+  background: #f5d07622;
+  outline: 2px solid #ffe59b;
+  outline-offset: 2px;
+}
+.wish-reaction-trigger:disabled,
+.wish-reaction-option:disabled {
+  cursor: wait;
+  opacity: 0.65;
+}
+.wish-reaction-active {
+  border-color: #f5d076;
+  background: #7c2d12aa;
+  color: #fff1bd;
+}
+.wish-reaction-picker {
+  display: flex;
+  flex: 1 0 100%;
+  flex-wrap: wrap;
+  gap: 4px;
+  padding-block: 3px;
+  animation: reactionPickerIn 160ms ease-out both;
+}
+.wish-reaction-option {
+  padding-inline: 8px;
+}
+.wish-reaction-sparkle {
+  position: absolute;
+  z-index: 1;
+  right: 12px;
+  bottom: 20px;
+  pointer-events: none;
+  font-size: 1.25rem;
+  animation: reactionSparkle 800ms ease-out both;
+}
+.wish-reaction-sparkle-love {
+  color: #ff6b81;
+}
+.wish-reaction-sparkle-thankful {
+  color: #ffe59b;
+}
+.wish-reaction-error,
+.wish-reaction-local-note {
+  flex: 1 0 100%;
+  overflow-wrap: anywhere;
+}
+.wish-reaction-error {
+  color: #fecaca;
+}
+.wish-reaction-local-note {
+  color: #fde68a;
+  opacity: 0.8;
+}
+@keyframes reactionPickerIn {
+  from {
+    opacity: 0;
+    transform: translateY(3px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+@keyframes reactionSparkle {
+  0% {
+    opacity: 0;
+    transform: translateY(4px) scale(0.7);
+  }
+  30% {
+    opacity: 1;
+    transform: translateY(-5px) scale(1.15);
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-16px) scale(0.8);
+  }
 }
 .kanote-card-new {
   box-shadow:
@@ -972,6 +1105,14 @@
 @media (prefers-reduced-motion: reduce) {
   .kanote-card {
     animation: none;
+  }
+  .wish-reaction-picker,
+  .wish-reaction-sparkle {
+    animation: none;
+  }
+  .wish-reaction-trigger,
+  .wish-reaction-option {
+    transition: none;
   }
   .float-up,
   .sway,

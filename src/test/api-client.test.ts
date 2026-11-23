@@ -12,7 +12,7 @@ const input = {
 describe("isolated browser API fallback", () => {
   beforeEach(async () => {
     vi.resetModules();
-    localStorage.clear();
+    window.localStorage.clear();
     client = await import("@/lib/api-client");
   });
   afterEach(() => {
@@ -88,8 +88,12 @@ describe("isolated browser API fallback", () => {
         autoApprove: false,
       });
       expect(
-        JSON.parse(localStorage.getItem(client.LOCAL_API_STORAGE_KEY)!),
-      ).toEqual({ wishes: [], autoApprove: false });
+        JSON.parse(window.localStorage.getItem(client.LOCAL_API_STORAGE_KEY)!),
+      ).toEqual({
+        wishes: [],
+        reactions: [],
+        autoApprove: false,
+      });
       expect(fetcher).toHaveBeenCalledTimes(1);
       // Reloading the module simulates a page reload: an intentionally cleared store stays empty.
       vi.resetModules();
@@ -137,7 +141,9 @@ describe("isolated browser API fallback", () => {
         client.apiRequest("/wishes?status=all", "GET", undefined, "wrong"),
       ).rejects.toThrow("Real API error");
       expect(client.getApiMode()).toBe("live");
-      expect(localStorage.getItem(client.LOCAL_API_STORAGE_KEY)).toBeNull();
+      expect(
+        window.localStorage.getItem(client.LOCAL_API_STORAGE_KEY),
+      ).toBeNull();
     },
   );
 
@@ -162,7 +168,9 @@ describe("isolated browser API fallback", () => {
       vi.fn().mockRejectedValue(new DOMException("Aborted", "AbortError")),
     );
     await expect(client.apiRequest("/settings")).rejects.toThrow("Aborted");
-    expect(localStorage.getItem(client.LOCAL_API_STORAGE_KEY)).toBeNull();
+    expect(
+      window.localStorage.getItem(client.LOCAL_API_STORAGE_KEY),
+    ).toBeNull();
   });
 
   it("reports blocked storage and preserves malformed stored data", async () => {
@@ -170,11 +178,13 @@ describe("isolated browser API fallback", () => {
       "fetch",
       vi.fn().mockResolvedValue(new Response("Not Found", { status: 404 })),
     );
-    localStorage.setItem(client.LOCAL_API_STORAGE_KEY, "broken");
+    window.localStorage.setItem(client.LOCAL_API_STORAGE_KEY, "broken");
     await expect(client.apiRequest("/settings")).rejects.toThrow();
-    expect(localStorage.getItem(client.LOCAL_API_STORAGE_KEY)).toBe("broken");
-    localStorage.removeItem(client.LOCAL_API_STORAGE_KEY);
-    vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => {
+    expect(window.localStorage.getItem(client.LOCAL_API_STORAGE_KEY)).toBe(
+      "broken",
+    );
+    window.localStorage.removeItem(client.LOCAL_API_STORAGE_KEY);
+    vi.spyOn(window.localStorage, "setItem").mockImplementation(() => {
       throw new Error("Storage is full");
     });
     await expect(client.apiRequest("/wishes", "POST", input)).rejects.toThrow(
@@ -190,11 +200,13 @@ describe("isolated browser API fallback", () => {
       .mockImplementation(async () => new Response(JSON.stringify(live)));
     vi.stubGlobal("fetch", fetcher);
     await client.apiRequest("/wishes", "POST", input);
-    const stored = localStorage.getItem(client.LOCAL_API_STORAGE_KEY);
+    const stored = window.localStorage.getItem(client.LOCAL_API_STORAGE_KEY);
     await client.retryLiveApi();
     expect(client.getApiMode()).toBe("live");
     expect(await client.apiRequest("/wishes?status=approved")).toEqual(live);
-    expect(localStorage.getItem(client.LOCAL_API_STORAGE_KEY)).toBe(stored);
+    expect(window.localStorage.getItem(client.LOCAL_API_STORAGE_KEY)).toBe(
+      stored,
+    );
     expect(
       fetcher.mock.calls
         .slice(1)

@@ -12,6 +12,8 @@ describe("moderation CSV export", () => {
         message: 'ပျော်ရွှင်ပါစေ, "friends"\nTogether',
         status: "pending",
         createdAt: "2026-11-10T00:00:00Z",
+        reactions: { like: 0, love: 0, haha: 0, wow: 0, thankful: 0 },
+        myReaction: null,
       },
     ]);
     expect(csv.startsWith("\uFEFF")).toBe(true);

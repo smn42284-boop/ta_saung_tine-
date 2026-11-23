@@ -8,6 +8,7 @@ import {
   type CSSProperties,
 } from "react";
 import type { Lantern } from "@/lib/lanterns";
+import { WishReactions } from "@/components/WishReactions";
 
 export function getWishLayout(width: number, count = 14) {
   const mode = count <= 4 ? "centered" : count <= 8 ? "expanded" : "full";
@@ -93,7 +94,7 @@ function estimatedHeight(wish: Lantern) {
       (total, line) => total + Math.max(1, Math.ceil(line.length / 30)),
       0,
     );
-  return 66 + lines * 26;
+  return 98 + lines * 26;
 }
 
 function WishCopy({ wish }: { wish: Lantern }) {
@@ -415,6 +416,7 @@ export function FloatingWishes({ messages }: { messages: Lantern[] }) {
                       <Kanote key={corner} corner={corner} />
                     ))}
                     <WishCopy wish={card.wish} />
+                    <WishReactions wish={card.wish} />
                     {card.newUntil > 0 && (
                       <span className="kanote-new-badge">✨ New</span>
                     )}

@@ -138,6 +138,7 @@ still surface; they do not silently approve or pretend a submission was saved.
 | `GET /api/wishes?status=approved` | Public: `{ wishes, counts: { HTY, HB, CDC, JC } }`; no emails           |
 | `GET /api/wishes?status=all`      | `x-admin-pin`: all wishes including emails, newest first                |
 | `POST /api/wishes`                | `{ employee_name, email, plant, message }`; returns created wish        |
+| `POST /api/wishes/:id/reactions`  | `{ plant, visitorId, reaction }`; public, approved wishes only          |
 | `PATCH /api/wishes/:id`           | `x-admin-pin`; `{ plant, status?: "approved" \| "rejected", message? }` |
 | `DELETE /api/wishes/:id`          | `x-admin-pin`; JSON `{ plant }`                                         |
 | `DELETE /api/wishes/all`          | `x-admin-pin`; deletes wishes, preserves settings                       |
@@ -151,6 +152,24 @@ company sign-in as appropriate. The company email suffix is validated, not email
 CSV includes employee emails; treat exports as private. Reset is permanent, non-transactional
 across partitions, and bounded to ten concurrent deletes. Avoid new submissions during an
 event reset; on an error, refresh and retry to clear any remaining documents.
+
+### Wish reactions
+
+The public display supports Like, Love, Haha, Wow, and Thankful reactions. Reaction
+documents use the existing Cosmos `wishes` container and `/plant` partition key; no
+database replacement, migration, new service, or additional application setting is
+required. The API hashes a browser-generated anonymous visitor UUID and combines it
+with the wish ID to derive a deterministic reaction document ID. A single upserted
+document therefore represents that visitor's one current reaction for that wish;
+changing or removing it is enforced by the API, not only by the UI. Reaction writes
+first verify the wish is approved. Admin wish listings exclude reaction documents.
+
+The approved-wish response includes reaction totals and the current visitor's selection.
+The existing display polling refreshes them every five seconds, so other open displays
+see changes without reloading. The UUID is saved in browser local storage as an
+anonymous identity only; reaction counts and selections themselves live in Cosmos DB.
+The Vite in-memory API and offline/static-preview browser fallback also support the
+controls for testing, but their reaction data is isolated from Cosmos and other devices.
 
 ### Local development and validation
 

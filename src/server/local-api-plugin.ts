@@ -15,7 +15,9 @@ export function localApiPlugin(): Plugin {
       server.middlewares.use(async (req, res, next) => {
         if (
           !req.url ||
-          !/^\/api\/(?:wishes(?:\/[^/?]+)?|settings)(?:\?|$)/.test(req.url)
+          !/^\/api\/(?:wishes(?:\/[^/?]+(?:\/reactions)?)?|settings)(?:\?|$)/.test(
+            req.url,
+          )
         ) {
           next();
           return;

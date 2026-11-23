@@ -4,6 +4,7 @@ import {
   settings,
   wishById,
   wishes,
+  wishReaction,
   withErrors,
 } from "./handlers";
 
@@ -24,6 +25,12 @@ app.http("wishById", {
   methods: ["PATCH", "DELETE"],
   authLevel: "anonymous",
   handler: withErrors(wishById),
+});
+app.http("wishReaction", {
+  route: "wishes/{id}/reactions",
+  methods: ["POST"],
+  authLevel: "anonymous",
+  handler: withErrors(wishReaction),
 });
 app.http("settings", {
   route: "settings",
