@@ -758,77 +758,124 @@
   min-width: 0;
 }
 .wish-reactions {
-  position: relative;
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 5px;
+  justify-content: flex-end;
+  gap: 4px 8px;
   min-width: 0;
-  margin-top: 8px;
+  margin-top: 5px;
   color: #fde68a;
   font-family: "TCCC Unity Text", sans-serif;
-  font-size: 0.72rem;
+  font-size: 0.68rem;
 }
 .wish-reaction-summary {
   display: flex;
   flex: 1 1 auto;
   flex-wrap: wrap;
-  gap: 3px 7px;
+  gap: 2px 8px;
   min-width: 0;
 }
 .wish-reaction-count {
   display: inline-flex;
   align-items: center;
-  gap: 3px;
+  gap: 2px;
   white-space: nowrap;
 }
-.wish-reaction-trigger,
-.wish-reaction-option {
+.wish-reaction-trigger {
   display: inline-flex;
-  min-height: 40px;
+  width: 30px;
+  height: 30px;
+  flex: 0 0 30px;
   align-items: center;
   justify-content: center;
-  gap: 5px;
-  border: 1px solid #f5d07666;
-  border-radius: 999px;
-  padding: 4px 9px;
-  background: #10162999;
+  border: 1px solid #f5d07688;
+  border-radius: 50%;
+  padding: 0;
+  background: #101629cc;
   color: #fde68a;
   cursor: pointer;
   transition:
+    transform 140ms ease,
     background-color 160ms ease,
-    border-color 160ms ease,
-    color 160ms ease;
+    border-color 160ms ease;
 }
 .wish-reaction-trigger:hover,
-.wish-reaction-option:hover,
-.wish-reaction-trigger:focus-visible,
-.wish-reaction-option:focus-visible {
+.wish-reaction-trigger:focus-visible {
   border-color: #ffe59b;
   background: #f5d07622;
   outline: 2px solid #ffe59b;
   outline-offset: 2px;
 }
-.wish-reaction-trigger:disabled,
-.wish-reaction-option:disabled {
+.wish-reaction-trigger:active {
+  transform: scale(0.88);
+}
+.wish-reaction-trigger:disabled {
   cursor: wait;
   opacity: 0.65;
 }
-.wish-reaction-active {
+.wish-reaction-trigger.wish-reaction-active {
   border-color: #f5d076;
   background: #7c2d12aa;
   color: #fff1bd;
 }
+.wish-reaction-count.wish-reaction-active {
+  color: #fff1bd;
+}
 .wish-reaction-picker {
+  position: fixed;
+  z-index: 10000;
   display: flex;
-  flex: 1 0 100%;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   gap: 4px;
-  padding-block: 3px;
-  animation: reactionPickerIn 160ms ease-out both;
+  max-width: calc(100vw - 16px);
+  border: 1px solid #f5d076bb;
+  border-radius: 999px;
+  padding: 5px;
+  background: linear-gradient(135deg, #101629f5, #321725f5);
+  box-shadow:
+    0 8px 24px rgba(0, 0, 0, 0.58),
+    0 0 16px rgba(245, 208, 118, 0.2);
+  -webkit-backdrop-filter: blur(14px) saturate(140%);
+  backdrop-filter: blur(14px) saturate(140%);
+  animation: reactionPickerIn 140ms ease-out both;
 }
 .wish-reaction-option {
-  padding-inline: 8px;
+  display: inline-flex;
+  width: 32px;
+  height: 32px;
+  flex: 0 0 32px;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid transparent;
+  border-radius: 50%;
+  padding: 0;
+  background: transparent;
+  color: #fff1bd;
+  cursor: pointer;
+  font-size: 1rem;
+  transition:
+    transform 140ms ease,
+    background-color 140ms ease,
+    border-color 140ms ease;
+}
+.wish-reaction-option:hover,
+.wish-reaction-option:focus-visible {
+  border-color: #f5d07699;
+  background: #f5d07622;
+  outline: 2px solid #ffe59b;
+  outline-offset: 1px;
+}
+.wish-reaction-option:active {
+  transform: scale(0.88);
+}
+.wish-reaction-option:disabled {
+  cursor: wait;
+  opacity: 0.65;
+}
+.wish-reaction-option.wish-reaction-active {
+  border-color: #f5d076;
+  background: #7c2d12aa;
 }
 .wish-reaction-sparkle {
   position: absolute;
@@ -860,11 +907,11 @@
 @keyframes reactionPickerIn {
   from {
     opacity: 0;
-    transform: translateY(3px);
+    transform: translateY(4px) scale(0.96);
   }
   to {
     opacity: 1;
-    transform: translateY(0);
+    transform: translateY(0) scale(1);
   }
 }
 @keyframes reactionSparkle {

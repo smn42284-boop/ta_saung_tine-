@@ -45,31 +45,40 @@ describe("wish reactions", () => {
     render(<WishReactions wish={wish} />);
 
     fireEvent.click(screen.getByRole("button", { name: "React to wish" }));
+    expect(screen.getByRole("button", { name: "React to wish" })).toHaveTextContent("✨");
     fireEvent.click(screen.getByRole("button", { name: "Love" }));
     expect(await screen.findByText("1")).toBeInTheDocument();
+    expect(screen.getByText("1").closest(".wish-reaction-count")).toHaveTextContent("❤️1");
     expect(
-      screen.getByRole("button", { name: "Change reaction, currently Love" }),
+      screen.getByRole("button", { name: "Change or remove your Love reaction" }),
+    ).toHaveTextContent("❤️");
+    expect(
+      screen.getByRole("button", { name: "Change or remove your Love reaction" }),
     ).toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole("button", { name: "Change reaction, currently Love" }));
+    fireEvent.click(screen.getByRole("button", { name: "Change or remove your Love reaction" }));
     fireEvent.click(screen.getByRole("button", { name: "Thankful" }));
     await waitFor(() => expect(screen.getByText("1")).toBeInTheDocument());
     expect(
       screen.getByRole("button", {
-        name: "Change reaction, currently Thankful",
+        name: "Change or remove your Thankful reaction",
       }),
     ).toBeInTheDocument();
 
     fireEvent.click(
       screen.getByRole("button", {
-        name: "Change reaction, currently Thankful",
+        name: "Change or remove your Thankful reaction",
       }),
     );
-    fireEvent.click(screen.getByRole("button", { name: "Thankful" }));
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: "Thankful, selected. Select again to remove",
+      }),
+    );
     await waitFor(() =>
       expect(
         screen.queryByRole("button", {
-          name: "Change reaction, currently Thankful",
+          name: "Change or remove your Thankful reaction",
         }),
       ).not.toBeInTheDocument(),
     );
@@ -96,5 +105,25 @@ describe("wish reactions", () => {
     fireEvent.click(screen.getByRole("button", { name: "Like" }));
     await waitFor(() => expect(screen.getByText("Reaction unavailable")).toBeInTheDocument());
     expect(document.querySelector(".wish-reaction-count")).toBeNull();
+  });
+
+  it("uses an emoji-only floating picker that closes on outside interaction", () => {
+    const { container } = render(<WishReactions wish={wish} />);
+    fireEvent.click(screen.getByRole("button", { name: "React to wish" }));
+
+    const picker = screen.getByRole("group", { name: "Choose a reaction" });
+    expect(container.contains(picker)).toBe(false);
+    expect(Array.from(picker.querySelectorAll("button"), (button) => button.textContent)).toEqual([
+      "👍",
+      "❤️",
+      "😂",
+      "😮",
+      "🙏",
+    ]);
+    expect(picker.querySelector('button[aria-label="Love"]')).toHaveAttribute("aria-label", "Love");
+    expect(container.querySelector(".wish-reaction-summary")).toBeNull();
+
+    fireEvent.pointerDown(document.body);
+    expect(screen.queryByRole("group", { name: "Choose a reaction" })).toBeNull();
   });
 });
