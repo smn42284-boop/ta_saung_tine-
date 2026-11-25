@@ -8,6 +8,10 @@ import {
   useLanterns,
   validateWish,
 } from "@/lib/lanterns";
+import {
+  getWishImages,
+  WISH_IMAGES_STORAGE_KEY,
+} from "@/lib/wish-images";
 
 const data = {
   wishes: [
@@ -42,6 +46,51 @@ describe("API lantern service and instant display cache", () => {
     const { result } = renderHook(() => useLanterns());
     expect(result.current.lanterns[0]?.message).toBe("Let hope shine");
     expect(result.current.counts.CDC).toBe(132);
+  });
+
+  it("adds only approved wishes' browser-local photos to the public display", async () => {
+    const photo = "data:image/webp;base64,ZmFrZQ==";
+    window.localStorage.setItem(
+      WISH_IMAGES_STORAGE_KEY,
+      JSON.stringify({ "wish-1": photo, "pending-wish": photo }),
+    );
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(new Response(JSON.stringify(data))),
+    );
+    const { result } = renderHook(() => useLanterns());
+
+    await waitFor(() =>
+      expect(result.current.lanterns[0]?.imageDataUrl).toBe(photo),
+    );
+    expect(result.current.lanterns.map((wish) => wish.id)).toEqual(["wish-1"]);
+  });
+
+  it("makes local photos available to admin wishes, including pending ones", async () => {
+    const photo = "data:image/webp;base64,ZmFrZQ==";
+    window.localStorage.setItem(
+      WISH_IMAGES_STORAGE_KEY,
+      JSON.stringify({ "pending-wish": photo }),
+    );
+    const pendingWish = {
+      id: "pending-wish",
+      employee_name: "Aye",
+      email: "aye@coca-cola.com.mm",
+      plant: "CDC",
+      message: "Let hope shine",
+      status: "pending",
+      created_on: "2026-11-10T00:00:00Z",
+    };
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(
+        new Response(JSON.stringify({ wishes: [pendingWish] })),
+      ),
+    );
+
+    await expect(lanternService.getAll("admin-pin")).resolves.toMatchObject([
+      { id: "pending-wish", status: "pending", imageDataUrl: photo },
+    ]);
   });
 
   it("refreshes every 5 seconds and caches fresh counts rather than the limited wish count", async () => {
@@ -116,6 +165,45 @@ describe("API lantern service and instant display cache", () => {
       email: "aye@coca-cola.com.mm",
       plant: "HB",
       message: "Let hope shine",
+    });
+  });
+
+  it("submits image-free wish data and stores the photo under the created wish ID", async () => {
+    const photo = "data:image/webp;base64,ZmFrZQ==";
+    const created = {
+      id: "created-wish",
+      employee_name: "Aye",
+      email: "aye@coca-cola.com.mm",
+      plant: "HB",
+      message: "Let hope shine",
+      status: "pending",
+      created_on: "2026-11-10T00:00:00Z",
+    };
+    const fetcher = vi
+      .fn()
+      .mockResolvedValue(new Response(JSON.stringify(created), { status: 201 }));
+    vi.stubGlobal("fetch", fetcher);
+
+    await expect(
+      lanternService.submit(
+        {
+          employee_name: "Aye",
+          email: "aye@coca-cola.com.mm",
+          plant: "HB",
+          message: "Let hope shine",
+        },
+        photo,
+      ),
+    ).resolves.toBeUndefined();
+
+    expect(JSON.parse(fetcher.mock.calls[0]![1].body)).toEqual({
+      employee_name: "Aye",
+      email: "aye@coca-cola.com.mm",
+      plant: "HB",
+      message: "Let hope shine",
+    });
+    expect(getWishImages(["created-wish"])).toEqual({
+      "created-wish": photo,
     });
   });
 

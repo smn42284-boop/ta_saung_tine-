@@ -205,6 +205,15 @@ Names and emails saved there can be read or changed by anyone using that browser
 Blocked/full or malformed storage produces an explicit error, not a false successful save.
 Clearing wishes persists an empty collection; samples do not reappear after refresh.
 
+Optional wish photos are compressed in the browser and saved separately under
+`share-light.wish-images.v1`, keyed by the existing wish ID. Photo data is never
+sent to the API or stored in Cosmos DB. Admin and display pages can show a photo
+only in the same browser profile where it was submitted; localStorage does not
+synchronize across devices, browsers, or plants, and clearing browser data can
+remove photos. This is temporary development storage, not a production image
+hosting solution. A full localStorage quota prevents photo wishes from submitting
+and displays an error rather than silently dropping the photo.
+
 Submit and Admin show the mode notice; the public display deliberately has no demo banner.
 Browser fallback stays
 active for the page session until **Retry live API** succeeds (or the page reloads), so

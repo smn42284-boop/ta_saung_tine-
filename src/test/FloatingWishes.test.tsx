@@ -314,4 +314,52 @@ describe("locked masonry card scheduling", () => {
       ).map((item) => item.id),
     ).toEqual(["new", "old"]);
   });
+
+  it("shows a clickable photo only for approved wishes and preserves reaction controls", () => {
+    render(
+      <FloatingWishes
+        messages={[
+          {
+            ...wish("approved-photo"),
+            imageDataUrl: "data:image/webp;base64,ZmFrZQ==",
+          },
+          {
+            ...wish("pending-photo"),
+            status: "pending",
+            imageDataUrl: "data:image/webp;base64,cGVuZGluZw==",
+          },
+        ]}
+      />,
+    );
+
+    expect(
+      screen.getByRole("button", {
+        name: "View photo attached to Aye's wish",
+      }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByAltText("Photo attached to Aye's wish"),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByAltText("Photo attached to Aye's wish"),
+    ).toHaveAttribute(
+        "src",
+        "data:image/webp;base64,ZmFrZQ==",
+    );
+    expect(
+      screen.queryByRole("button", { name: /React to wish/i }),
+    ).toBeInTheDocument();
+    expect(
+      document.querySelector('[data-wish-id="pending-photo"]'),
+    ).not.toBeInTheDocument();
+  });
+
+  it("keeps a text-only wish card free of an image placeholder", () => {
+    render(<FloatingWishes messages={[wish("text-only")]} />);
+
+    expect(
+      screen.queryByRole("button", { name: /view photo attached/i }),
+    ).not.toBeInTheDocument();
+    expect(screen.getByText("Let hope shine")).toBeInTheDocument();
+  });
 });

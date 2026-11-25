@@ -9,6 +9,7 @@ import {
 } from "react";
 import type { Lantern } from "@/lib/lanterns";
 import { WishReactions } from "@/components/WishReactions";
+import { WishImagePreview } from "@/components/WishImagePreview";
 
 export function getWishLayout(width: number, count = 14) {
   const mode = count <= 4 ? "centered" : count <= 8 ? "expanded" : "full";
@@ -94,7 +95,7 @@ function estimatedHeight(wish: Lantern) {
       (total, line) => total + Math.max(1, Math.ceil(line.length / 30)),
       0,
     );
-  return 98 + lines * 26;
+  return 98 + lines * 26 + (wish.imageDataUrl ? 112 : 0);
 }
 
 function WishCopy({ wish }: { wish: Lantern }) {
@@ -113,6 +114,13 @@ function WishCopy({ wish }: { wish: Lantern }) {
       }
     >
       <p className="kanote-message">{wish.message}</p>
+      {wish.imageDataUrl && (
+        <WishImagePreview
+          src={wish.imageDataUrl}
+          alt={`Photo attached to ${wish.name}'s wish`}
+          label={`View photo attached to ${wish.name}'s wish`}
+        />
+      )}
       <footer className="kanote-sender flex items-center justify-between gap-2 text-xs">
         <span className="min-w-0 truncate">— {wish.name}</span>
         <span className="shrink-0 rounded-full border border-current/50 px-2 py-0.5">

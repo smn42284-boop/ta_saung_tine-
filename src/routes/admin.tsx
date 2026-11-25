@@ -16,6 +16,7 @@ import {
   type LanternLocation,
 } from "@/lib/lanterns";
 import { downloadLanternCsv } from "@/lib/lantern-export";
+import { WishImagePreview } from "@/components/WishImagePreview";
 import { Switch } from "@/components/ui/switch";
 import { ApiModeNotice } from "@/components/ApiModeNotice";
 import { getApiMode } from "@/lib/api-client";
@@ -356,6 +357,14 @@ function Dashboard({
               key={wish.id}
               className="glass flex flex-wrap items-center gap-4 rounded-xl p-5"
             >
+              {wish.imageDataUrl && (
+                <WishImagePreview
+                  src={wish.imageDataUrl}
+                  alt={`Photo attached to ${wish.name}'s wish`}
+                  label={`Preview photo for ${wish.name}`}
+                  compact
+                />
+              )}
               <div className="min-w-0 flex-1 basis-72">
                 <p className="whitespace-pre-wrap break-words">
                   {wish.message}

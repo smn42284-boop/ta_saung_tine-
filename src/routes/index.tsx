@@ -24,8 +24,8 @@ function Submit() {
         </header>
         <ApiModeNotice className="mb-4" />
         <VisitorWishForm
-          onSubmit={async (input) => {
-            await lanternService.submit(input);
+          onSubmit={async (input, imageDataUrl) => {
+            return lanternService.submit(input, imageDataUrl);
           }}
           onSuccess={() => {}}
         />

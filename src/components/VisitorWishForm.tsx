@@ -1,8 +1,9 @@
 import { Link } from "@tanstack/react-router";
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { createPortal } from "react-dom";
-import { CheckCircle2, Sparkles } from "lucide-react";
+import { CheckCircle2, ImagePlus, Sparkles, X } from "lucide-react";
 import { LanternShape } from "@/components/Sky";
+import { prepareWishImage } from "@/lib/wish-images";
 import {
   MAX_NICK,
   EMAIL_DOMAIN,
@@ -14,7 +15,10 @@ import {
 } from "@/lib/lanterns";
 
 interface VisitorWishFormProps {
-  onSubmit: (input: CreateLanternInput) => Promise<void>;
+  onSubmit: (
+    input: CreateLanternInput,
+    imageDataUrl?: string,
+  ) => Promise<{ imageWarning?: string } | void>;
   onSuccess: () => void;
 }
 
@@ -23,6 +27,10 @@ export function VisitorWishForm({ onSubmit, onSuccess }: VisitorWishFormProps) {
   const [email, setEmail] = useState("");
   const [message, setMessage] = useState("");
   const [location, setLocation] = useState<LanternLocation | "">("");
+  const [imageDataUrl, setImageDataUrl] = useState<string | null>(null);
+  const [imageError, setImageError] = useState<string | null>(null);
+  const [imageWarning, setImageWarning] = useState<string | null>(null);
+  const [processingImage, setProcessingImage] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
@@ -31,6 +39,7 @@ export function VisitorWishForm({ onSubmit, onSuccess }: VisitorWishFormProps) {
     top: number;
   } | null>(null);
   const submittingRef = useRef(false);
+  const imageInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (!launchOrigin) return;
@@ -74,12 +83,16 @@ export function VisitorWishForm({ onSubmit, onSuccess }: VisitorWishFormProps) {
       .querySelector<HTMLButtonElement>('button[type="submit"]')
       ?.getBoundingClientRect();
     try {
-      await onSubmit({
+      const input = {
         employee_name: name.trim(),
         email: normalizedEmail,
         message: message.trim(),
         plant: location,
-      });
+      };
+      const result = imageDataUrl
+        ? await onSubmit(input, imageDataUrl)
+        : await onSubmit(input);
+      setImageWarning(result ? (result.imageWarning ?? null) : null);
       if (buttonBounds) {
         setLaunchOrigin({
           left: buttonBounds.left + buttonBounds.width / 2,
@@ -99,6 +112,43 @@ export function VisitorWishForm({ onSubmit, onSuccess }: VisitorWishFormProps) {
       setSubmitting(false);
     }
   };
+
+  const selectImage = async (file: File | undefined) => {
+    if (!file) return;
+    setImageError(null);
+    setProcessingImage(true);
+    try {
+      setImageDataUrl(await prepareWishImage(file));
+    } catch (reason) {
+      setImageError(
+        reason instanceof Error
+          ? reason.message
+          : "This image could not be prepared. Please choose another.",
+      );
+    } finally {
+      setProcessingImage(false);
+      if (imageInputRef.current) imageInputRef.current.value = "";
+    }
+  };
+
+  const removeImage = () => {
+    setImageDataUrl(null);
+    setImageError(null);
+    if (imageInputRef.current) imageInputRef.current.value = "";
+  };
+
+  const photoInput = (
+    <input
+      ref={imageInputRef}
+      id="wish-photo"
+      type="file"
+      accept=".jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp"
+      aria-describedby="wish-photo-help"
+      className="sr-only"
+      disabled={processingImage || submitting}
+      onChange={(event) => void selectImage(event.currentTarget.files?.[0])}
+    />
+  );
 
   const launchEffect = launchOrigin
     ? typeof document === "undefined"
@@ -126,6 +176,11 @@ export function VisitorWishForm({ onSubmit, onSuccess }: VisitorWishFormProps) {
           Thank you for sharing your wish. Together, we make the festival
           brighter.
         </p>
+        {imageWarning && (
+          <p className="mt-3 text-sm text-amber-200" role="status">
+            {imageWarning}
+          </p>
+        )}
         <Link
           to="/display"
           className="visitor-success-link inline-flex rounded-full bg-primary px-6 py-3 font-semibold text-primary-foreground shadow-glow"
@@ -241,9 +296,58 @@ export function VisitorWishForm({ onSubmit, onSuccess }: VisitorWishFormProps) {
           </p>
         )}
       </div>
+      <fieldset className="space-y-2">
+        <legend className="text-sm font-medium text-foreground">
+          Add a photo <span className="text-gold">(Optional)</span>
+        </legend>
+        <p id="wish-photo-help" className="text-xs text-muted-foreground">
+          A photo is a lovely extra, but your wish shines just as brightly
+          without one.
+        </p>
+        {imageDataUrl ? (
+          <div className="wish-photo-selection">
+            <img
+              src={imageDataUrl}
+              alt="Preview of the photo attached to your wish"
+              className="wish-photo-preview"
+            />
+            <div className="flex flex-wrap gap-2">
+              <label className="wish-photo-action cursor-pointer">
+                {photoInput}
+                <ImagePlus className="h-4 w-4" aria-hidden="true" />
+                Replace photo
+              </label>
+              <button
+                type="button"
+                className="wish-photo-action"
+                onClick={removeImage}
+              >
+                <X className="h-4 w-4" aria-hidden="true" />
+                Remove photo
+              </button>
+            </div>
+          </div>
+        ) : (
+          <label className="wish-photo-upload cursor-pointer">
+            {photoInput}
+            <ImagePlus className="h-5 w-5 shrink-0 text-gold" aria-hidden="true" />
+            <span>
+              {processingImage ? "Preparing photo…" : "Choose a photo"}
+              <span className="mt-0.5 block text-xs text-muted-foreground">
+                JPG, PNG or WEBP · up to 5 MB
+              </span>
+            </span>
+          </label>
+        )}
+        {imageError && (
+          <p className="text-sm text-destructive" role="alert">
+            {imageError}
+          </p>
+        )}
+      </fieldset>
       <button
         type="submit"
-        disabled={submitting}
+        disabled={submitting || processingImage}
         className="flex w-full items-center justify-center gap-2 rounded-full bg-primary py-4 font-sans text-lg font-bold uppercase tracking-wider text-primary-foreground shadow-glow transition active:scale-95 disabled:opacity-60"
       >
         <Sparkles className="h-5 w-5" aria-hidden="true" />

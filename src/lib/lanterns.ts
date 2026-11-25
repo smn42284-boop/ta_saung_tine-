@@ -1,5 +1,16 @@
 import { useEffect, useState } from "react";
 import { apiRequest, getApiMode, LOCAL_API_STORAGE_KEY } from "./api-client";
+import {
+  associateStagedWishImage,
+  clearWishImages,
+  discardStagedWishImage,
+  getWishImages,
+  isStorageQuotaError,
+  removeWishImage,
+  stageWishImage,
+  WISH_IMAGES_CHANGE_EVENT,
+  WISH_IMAGES_STORAGE_KEY,
+} from "./wish-images";
 export { apiRequest } from "./api-client";
 import {
   PLANTS,
@@ -40,6 +51,7 @@ export interface Lantern {
   createdAt: string;
   reactions: DisplayWish["reactions"];
   myReaction: ReactionType | null;
+  imageDataUrl?: string;
 }
 
 export const DISPLAY_CACHE_KEY = "share-light.display.v1";
@@ -150,7 +162,10 @@ function cachedDisplay(): DisplayData {
   return { wishes: [], counts: emptyCounts() };
 }
 
-function toLantern(wish: DisplayData["wishes"][number] | Wish): Lantern {
+function toLantern(
+  wish: DisplayData["wishes"][number] | Wish,
+  imageDataUrl?: string,
+): Lantern {
   return {
     id: wish.id,
     name: wish.employee_name,
@@ -161,6 +176,7 @@ function toLantern(wish: DisplayData["wishes"][number] | Wish): Lantern {
     reactions: "reactions" in wish ? wish.reactions : emptyReactionCounts(),
     myReaction: "myReaction" in wish ? wish.myReaction : null,
     ...("email" in wish ? { email: wish.email } : {}),
+    ...(imageDataUrl ? { imageDataUrl } : {}),
   };
 }
 
@@ -169,14 +185,47 @@ function notifyChange() {
 }
 
 export const lanternService = {
-  async submit(input: WishInput) {
-    const created = await apiRequest<Wish>(
-      "/wishes",
-      "POST",
-      parseWishInput(input),
-    );
-    notifyChange();
-    return created;
+  async submit(
+    input: WishInput,
+    imageDataUrl?: string,
+  ): Promise<{ imageWarning?: string } | undefined> {
+    let stagedImageId: string | undefined;
+    try {
+      if (imageDataUrl) stagedImageId = stageWishImage(imageDataUrl);
+      const created = await apiRequest<Wish>(
+        "/wishes",
+        "POST",
+        parseWishInput(input),
+      );
+      let imageWarning: string | undefined;
+      if (stagedImageId) {
+        try {
+          associateStagedWishImage(stagedImageId, created.id);
+        } catch (reason) {
+          imageWarning = `Your wish was submitted, but its photo could not be linked in this browser${
+            reason instanceof Error ? `: ${reason.message}` : "."
+          }`;
+        }
+      }
+      notifyChange();
+      return imageWarning ? { imageWarning } : undefined;
+    } catch (error) {
+      if (stagedImageId) {
+        try {
+          discardStagedWishImage(stagedImageId);
+        } catch (cleanupError) {
+          console.error(
+            "A staged wish photo could not be removed after submission failed.",
+            cleanupError,
+          );
+        }
+      }
+      if (stagedImageId && isStorageQuotaError(error))
+        throw new Error(
+          "This browser ran out of local storage while saving your wish. Your wish and photo were not saved; try a smaller photo.",
+        );
+      throw error;
+    }
   },
   async getAll(pin: string, signal?: AbortSignal) {
     const data = await apiRequest<{ wishes: Wish[] }>(
@@ -186,7 +235,8 @@ export const lanternService = {
       pin,
       signal,
     );
-    return data.wishes.map(toLantern);
+    const images = getWishImages(data.wishes.map((wish) => wish.id));
+    return data.wishes.map((wish) => toLantern(wish, images[wish.id]));
   },
   async update(
     wish: Lantern,
@@ -211,6 +261,18 @@ export const lanternService = {
       { plant: wish.officeLocation },
       pin,
     );
+    try {
+      removeWishImage(wish.id);
+    } catch (error) {
+      console.error(
+        "The wish was deleted, but its local photo could not be removed.",
+        error,
+      );
+      notifyChange();
+      throw new Error(
+        "The wish was deleted, but its local photo could not be removed from this browser.",
+      );
+    }
     notifyChange();
   },
   async clear(pin: string) {
@@ -222,6 +284,16 @@ export const lanternService = {
         "Wishes were cleared, but the local display cache could not be removed.",
         error,
       );
+    }
+    try {
+      clearWishImages();
+    } catch (error) {
+      console.error(
+        "Wishes were cleared, but local wish photos could not be removed.",
+        error,
+      );
+      notifyChange();
+      throw error;
     }
     notifyChange();
   },
@@ -248,6 +320,7 @@ export const lanternService = {
 
 export function useLanterns() {
   const [data, setData] = useState(cachedDisplay);
+  const [images, setImages] = useState<Record<string, string>>({});
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -268,9 +341,15 @@ export function useLanterns() {
             controller.signal,
           ),
         );
+        const nextImages = getWishImages(next.wishes.map((wish) => wish.id));
         if (!active) return;
         setData((current) =>
           JSON.stringify(current) === JSON.stringify(next) ? current : next,
+        );
+        setImages((current) =>
+          JSON.stringify(current) === JSON.stringify(nextImages)
+            ? current
+            : nextImages,
         );
         setError(null);
         try {
@@ -282,12 +361,14 @@ export function useLanterns() {
           );
         }
       } catch (reason) {
-        if (active)
+        if (active) {
+          setImages({});
           setError(
             reason instanceof Error
               ? reason.message
               : "Wishes could not be refreshed.",
           );
+        }
       } finally {
         inFlight = false;
       }
@@ -300,19 +381,30 @@ export function useLanterns() {
         void refresh();
       } else if (event.key === LOCAL_API_STORAGE_KEY) {
         void refresh();
+      } else if (event.key === WISH_IMAGES_STORAGE_KEY) {
+        void refresh();
       }
     };
+    const onImagesChange = () => void refresh();
     const timer = window.setInterval(onChange, 5000);
     window.addEventListener(CHANGE_EVENT, onChange);
     window.addEventListener("storage", onStorage);
+    window.addEventListener(WISH_IMAGES_CHANGE_EVENT, onImagesChange);
     return () => {
       active = false;
       controller.abort();
       window.clearInterval(timer);
       window.removeEventListener(CHANGE_EVENT, onChange);
       window.removeEventListener("storage", onStorage);
+      window.removeEventListener(WISH_IMAGES_CHANGE_EVENT, onImagesChange);
     };
   }, []);
 
-  return { lanterns: data.wishes.map(toLantern), counts: data.counts, error };
+  return {
+    lanterns: data.wishes.map((wish) =>
+      toLantern(wish, images[wish.id]),
+    ),
+    counts: data.counts,
+    error,
+  };
 }
